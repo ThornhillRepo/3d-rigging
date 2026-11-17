@@ -1,0 +1,2041 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blender Weight Painting (Part 6)</title>
+<meta name="description" content="Part 6 of the Blender series: an interactive resource for weight painting and weighting a rigged human model in Blender 4.x using built-in tools: vertex groups, Weight Paint brushes, normalising, cleaning, test poses and Preserve Volume.">
+<style>
+:root{
+  --bg:#1c1c1c; --bg-2:#222; --panel:#282828; --panel-2:#303030; --panel-3:#3a3a3a;
+  --line:#474747; --line-soft:#383838;
+  --text:#ececec; --muted:#b8b8b8;
+  --accent:#4772b3; --accent-hi:#6f9be3; --accent-soft:rgba(71,114,179,.22);
+  --orange:#ffab52; --orange-soft:rgba(255,171,82,.14);
+  --green:#74d494; --green-soft:rgba(116,212,148,.13);
+  --red:#ff8585; --red-soft:rgba(255,133,133,.12);
+  --focus:#ffc46b;
+  --radius:10px;
+  --mono:ui-monospace,"Cascadia Mono","Segoe UI Mono",Consolas,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important;animation:none!important}}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 "Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;overflow-x:hidden}
+a{color:var(--accent-hi)}
+h1,h2,h3,h4{line-height:1.25;margin:0 0 .5em}
+h2{font-size:clamp(1.45rem,1.1rem + 1.4vw,1.9rem)}
+h3{font-size:1.2rem}
+p{margin:0 0 1em}
+[hidden]{display:none!important}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px;border-radius:6px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:default}
+.skip{position:absolute;left:-999px;top:8px;background:var(--orange);color:#111;padding:8px 14px;border-radius:6px;z-index:100;font-weight:600}
+.skip:focus{left:8px}
+input[type=text],input[type=search],select,textarea{background:#181818;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:9px 12px;font:inherit}
+input[type=text]:focus,select:focus,textarea:focus{outline:3px solid var(--focus);outline-offset:1px;border-color:var(--accent-hi)}
+textarea{width:100%;min-height:110px;resize:vertical}
+input[type=range]{accent-color:var(--accent-hi);width:100%}
+
+/* ---------- Top bar ---------- */
+.topbar{position:sticky;top:0;z-index:50;background:#232323;border-bottom:1px solid #111;box-shadow:0 2px 10px rgba(0,0,0,.35)}
+.topbar-inner{max-width:1180px;margin:0 auto;padding:8px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none;font-weight:700;white-space:nowrap}
+.brand svg{flex:none}
+.brand small{font-weight:700;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;background:var(--orange);color:#1d1d1d;padding:2px 7px;border-radius:99px}
+.nav-wrap{order:4;flex-basis:100%;min-width:0}
+.nav{list-style:none;margin:0;padding:2px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin}
+.nav a{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;color:var(--muted);text-decoration:none;font-size:.9rem;white-space:nowrap;border:1px solid transparent}
+.nav a:hover{background:var(--panel-2);color:var(--text)}
+.nav a.current{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}
+.nav .badge{font-size:.72rem;background:var(--panel-3);color:var(--text);padding:1px 6px;border-radius:99px}
+.nav .badge.done{background:var(--green);color:#10291a}
+.prog{order:3;position:relative;margin-left:auto}
+.prog summary{list-style:none;display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:.9rem;white-space:nowrap}
+.prog summary::-webkit-details-marker{display:none}
+.prog summary:hover{border-color:var(--accent-hi)}
+.prog[open] summary{border-color:var(--accent-hi);background:var(--panel-2)}
+.prog-track{width:70px;height:8px;border-radius:99px;background:#151515;overflow:hidden;display:inline-block}
+.prog-track span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-hi),var(--orange));transition:width .4s}
+.prog-pop{position:absolute;right:0;top:calc(100% + 6px);width:min(340px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.5);max-height:75vh;overflow:auto}
+.prog-pop ul{list-style:none;margin:0 0 12px;padding:0}
+.prog-pop li{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--line-soft);font-size:.9rem}
+.prog-pop li .v{font-weight:600;white-space:nowrap}
+.prog-pop li.done .v{color:var(--green)}
+.prog-bar{height:3px;background:#151515}
+.prog-bar span{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent-hi),var(--orange));transition:width .4s}
+
+/* ---------- Layout ---------- */
+main{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+section.block{padding:48px 0 16px;scroll-margin-top:120px}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.eyebrow{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);font-weight:700;margin:0 0 4px}
+.lead{color:var(--muted);max-width:72ch}
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:20px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:14px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;border-radius:7px;border:1px solid var(--line);background:var(--panel-2);font-weight:600;font-size:.95rem;text-decoration:none;color:var(--text)}
+.btn:hover:not(:disabled){background:var(--panel-3);border-color:var(--accent-hi)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover:not(:disabled){background:#5583c9;border-color:var(--accent-hi)}
+.btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent-hi);color:#fff}
+.btn.small{padding:6px 11px;font-size:.85rem}
+.btn:disabled{opacity:.45}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer;font-size:.95rem}
+.switch input{width:20px;height:20px;accent-color:var(--accent-hi)}
+.radio-row{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+.radio-row label{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2);cursor:pointer;font-size:.93rem}
+.radio-row label:hover{border-color:var(--accent-hi)}
+.radio-row label:has(input:checked){border-color:var(--accent-hi);background:var(--accent-soft)}
+.radio-row input{accent-color:var(--accent-hi);width:18px;height:18px}
+.all-done{padding:12px 14px;border-radius:var(--radius);background:var(--green-soft);border:1px solid var(--green);margin-bottom:12px}
+.note{padding:12px 14px;border-radius:var(--radius);background:var(--accent-soft);border:1px solid var(--accent);margin:12px 0}
+.warnbox{padding:12px 14px;border-radius:var(--radius);background:var(--orange-soft);border:1px solid var(--orange);margin:12px 0}
+
+/* ---------- Keys ---------- */
+.keyseq{display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px;vertical-align:middle}
+.kwrap{display:inline-flex;align-items:center;gap:4px}
+kbd.k{display:inline-flex;align-items:center;justify-content:center;min-width:2em;height:2em;padding:0 .55em;font:700 .8rem/1 var(--mono);color:#f5f5f5;background:linear-gradient(#4d4d4d,#353535);border:1px solid #626262;border-bottom-color:#1d1d1d;border-radius:6px;box-shadow:0 2px 0 #121212,inset 0 1px 0 rgba(255,255,255,.14);white-space:nowrap}
+kbd.k.mouse{background:linear-gradient(#41506b,#2f3a50);border-color:#61759b;border-bottom-color:#1a2130}
+.op{font-size:.75rem;color:var(--muted);font-weight:500}
+.legend{display:flex;flex-wrap:wrap;gap:12px 22px;margin-top:10px}
+.legend > div{display:flex;align-items:center;gap:8px;font-size:.92rem;color:var(--muted)}
+
+/* ---------- Intro ---------- */
+.hero{display:grid;grid-template-columns:1.3fr 1fr;gap:28px;align-items:center;padding-top:36px}
+.hero h1{font-size:clamp(1.9rem,1.3rem + 2.6vw,3rem);margin-bottom:.35em}
+.hero h1 span{color:var(--orange)}
+.part-tag{display:inline-flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.part-tag b{font-size:.75rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--orange);color:#1d1d1d;padding:3px 10px;border-radius:99px}
+.part-tag span{font-size:.85rem;color:var(--muted)}
+.hero-stack{justify-self:center;width:min(100%,360px);display:flex;flex-direction:column;gap:6px}
+@media (max-width:760px){.hero{grid-template-columns:1fr}}
+.benefit h3{display:flex;align-items:center;gap:10px;font-size:1.05rem}
+.benefit .ic{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent-hi);font-size:1.1rem;flex:none}
+.benefit p{margin:0;color:var(--muted);font-size:.95rem}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:700px){.compare{grid-template-columns:1fr}}
+.compare > div{border-radius:var(--radius);padding:16px;border:1px solid var(--line-soft);background:var(--panel-2)}
+.compare h3{font-size:1.02rem;display:flex;gap:8px;align-items:center}
+.compare ul{margin:.3em 0 0;padding-left:1.2em;font-size:.94rem}
+.compare .d{border-left:4px solid var(--red)}
+.compare .nd{border-left:4px solid var(--green)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}
+.steps li{counter-increment:s;background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 14px 14px 54px;position:relative}
+.steps li::before{content:counter(s);position:absolute;left:14px;top:14px;width:28px;height:28px;border-radius:50%;background:var(--orange);color:#1d1d1d;font-weight:800;display:grid;place-items:center;font-size:.9rem}
+.steps a{font-weight:700}
+.steps p{margin:.2em 0 0;color:var(--muted);font-size:.93rem}
+.tips{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.tip{border-left:4px solid var(--orange);background:var(--orange-soft);border-radius:0 var(--radius) var(--radius) 0;padding:14px 16px}
+.tip h3{font-size:1rem;margin-bottom:.3em}
+.tip p{margin:0 0 .5em;font-size:.94rem}
+.outcomes{margin:0;padding-left:1.3em}
+.outcomes li{margin:.3em 0}
+.outcomes li::marker{color:var(--orange)}
+
+/* ---------- Recap ---------- */
+.recap{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:10px}
+.rc{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:12px 14px}
+.rc .keyseq{margin-bottom:6px}
+.rc h4{margin:0 0 2px;font-size:.98rem}
+.rc p{margin:0;font-size:.88rem;color:var(--muted)}
+.warm-score{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}
+
+/* ---------- Accordions ---------- */
+.acc{border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--panel);margin-bottom:8px}
+.acc summary{cursor:pointer;padding:12px 16px;font-weight:650;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px;border-radius:var(--radius)}
+.acc summary::-webkit-details-marker{display:none}
+.acc summary::after{content:"▾";color:var(--muted);transition:transform .2s;flex:none}
+.acc[open] summary::after{transform:rotate(180deg);color:var(--orange)}
+.acc summary:hover{background:var(--panel-2)}
+.acc[open] summary{border-radius:var(--radius) var(--radius) 0 0;box-shadow:inset 3px 0 0 var(--orange)}
+.acc-body{padding:4px 16px 14px}
+.acc-body p{margin:.5em 0 0;font-size:.95rem}
+.acc .why{color:var(--muted)}
+.fix{background:var(--green-soft);border-left:4px solid var(--green);padding:9px 12px;border-radius:0 8px 8px 0;color:var(--text)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--radius)}
+table.ctx{width:100%;border-collapse:collapse;font-size:.94rem;min-width:520px}
+table.ctx th,table.ctx td{padding:10px 12px;border-bottom:1px solid var(--line-soft);text-align:left;vertical-align:top}
+table.ctx th{background:var(--panel-2);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+table.ctx tr:nth-child(even) td{background:#2b2b2b}
+table.ctx td{background:var(--panel)}
+
+/* ---------- Tabs & cards ---------- */
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+@media (max-width:700px){.tabs{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}}
+.tab{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-size:.92rem;white-space:nowrap}
+.tab:hover{border-color:var(--accent-hi);background:var(--panel-2)}
+.tab[aria-selected="true"]{background:var(--accent);border-color:var(--accent-hi);color:#fff}
+.tab[hidden]{display:none}
+.tab .tab-num{font:700 .75rem var(--mono);background:rgba(0,0,0,.28);border-radius:4px;padding:2px 6px}
+.tab .tab-done{color:var(--green);font-weight:800;display:none}
+.tab.seen .tab-done{display:inline}
+.tab[aria-selected="true"] .tab-done{color:#d8ffe4}
+.tab.checked .tab-num{background:var(--green);color:#10291a}
+.cat-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.cat-head p{margin:.2em 0 0;color:var(--muted);max-width:72ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:12px;align-items:start}
+.card{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:var(--radius);overflow:hidden}
+.card-head{width:100%;display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;padding:13px 14px;background:transparent;border:0;text-align:left}
+.card-head:hover{background:var(--panel-3)}
+.card-head[aria-expanded="true"]{background:var(--panel-3);box-shadow:inset 3px 0 0 var(--orange)}
+.card-head .nm{font-weight:650;display:block}
+.card-head .chev{width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--panel);transition:transform .2s;color:var(--muted)}
+.card-head[aria-expanded="true"] .chev{transform:rotate(180deg);color:var(--orange)}
+.kind{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:2px 7px;border-radius:4px;margin-top:4px;background:rgba(255,255,255,.07);color:var(--muted)}
+.kind.Modifier{background:var(--accent-soft);color:#a9c6f5}
+.kind.Shortcut{background:var(--orange-soft);color:var(--orange)}
+.kind.Setting{background:var(--green-soft);color:var(--green)}
+.card-body{padding:4px 16px 16px;border-top:1px solid var(--line-soft)}
+.card-body p{margin:.5em 0 0;font-size:.95rem}
+.card-body .btn-row{margin-top:12px}
+.msec{margin-top:12px}
+.msec h4{font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;color:var(--orange);margin:0 0 4px}
+.eg{background:var(--accent-soft);border-radius:8px;padding:9px 12px;color:var(--text);margin:0;font-size:.94rem}
+.setl{margin:0;display:grid;grid-template-columns:minmax(0,auto) 1fr;gap:4px 12px;font-size:.92rem}
+.setl dt{font-weight:650;color:var(--text)}
+.setl dd{margin:0;color:var(--muted)}
+@media (max-width:480px){.setl{grid-template-columns:1fr}.setl dd{margin-bottom:6px}}
+.keyrows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:.92rem}
+.keyrows li{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.mist{background:var(--red-soft);border-left:4px solid var(--red);border-radius:0 8px 8px 0;padding:9px 12px;font-size:.93rem}
+.mist p{margin:0}
+.mist .fix{margin-top:8px;font-size:.93rem}
+.pager{display:flex;justify-content:space-between;gap:10px;margin-top:18px;flex-wrap:wrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{padding:5px 11px;border-radius:99px;border:1px solid var(--line);background:var(--panel);font-size:.85rem}
+.chip:hover{border-color:var(--accent-hi)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent-hi);color:#fff}
+
+/* ---------- Diagrams ---------- */
+.dgrow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:10px 12px;margin:12px 0}
+.dg{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;width:176px}
+.dg .dgbox{width:176px;aspect-ratio:4/3;background:radial-gradient(ellipse at 50% 40%,#454545,#2c2c2c 80%);border-radius:8px;border:1px solid var(--line-soft);overflow:hidden;display:grid;place-items:center}
+.dg svg{display:block;width:100%;height:100%}
+.dg figcaption{font-size:.8rem;line-height:1.35;color:var(--muted);text-align:center}
+.dg.good .dgbox{border-color:rgba(116,212,148,.7)}
+.dg.bad .dgbox{border-color:rgba(255,133,133,.7)}
+.dg.good figcaption::before{content:"✓ ";color:var(--green);font-weight:800}
+.dg.bad figcaption::before{content:"✕ ";color:var(--red);font-weight:800}
+.dg.wide{width:260px}.dg.wide .dgbox{width:260px}
+.dg-arrow{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:40px;font-size:.78rem;color:var(--muted);width:92px;text-align:center}
+.dg-arrow .ar{font-size:1.5rem;line-height:1;color:var(--orange)}
+.cat-dg{background:var(--bg-2);border:1px solid var(--line-soft);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px}
+.cat-dg > p{margin:0;color:var(--muted);font-size:.92rem}
+.card .dg,.card .dg .dgbox{width:140px}
+.card .dg-arrow{width:70px;padding-top:30px}
+@media (max-width:420px){.dg,.dg .dgbox{width:136px}.dg-arrow{width:64px;padding-top:30px}.dg.wide,.dg.wide .dgbox{width:100%}}
+
+/* modifier panel mock */
+.mp-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:760px){.mp-wrap{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:480px){.mp-h{flex-wrap:wrap;gap:4px}.mp-h .nm{flex:1 1 90px}}
+.mpanel{background:#2b2b2b;border:1px solid #1a1a1a;border-radius:8px;padding:8px;font-size:.85rem;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.mp-top{display:flex;align-items:center;gap:8px;padding:4px 4px 8px;color:var(--muted)}
+.mp-top .obj{color:var(--text);font-weight:650}
+.mp-add{margin-left:auto;padding:4px 10px;border-radius:5px;background:#3d3d3d;border:1px solid #555;color:var(--text);font-size:.82rem}
+.mp{background:#303030;border:1px solid #3e3e3e;border-radius:6px;margin-top:5px}
+.mp-h{display:flex;align-items:center;gap:6px;padding:5px 6px;min-height:32px}
+.mp-h .ic{width:16px;height:16px;color:#7fb0ff;flex:none}
+.mp-h .nm{flex:1;min-width:0;background:#1f1f1f;border-radius:4px;padding:2px 7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mp-h .tg{width:22px;height:22px;display:grid;place-items:center;border-radius:4px;background:#3e3e3e;color:#dcdcdc;flex:none}
+.mp-h .tg svg{width:14px;height:14px}
+.mp-h .tg.off{background:#262626;color:#777}
+.callout{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--orange);color:#1d1d1d;font:800 .7rem/1 system-ui;flex:none}
+.mp-legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:.92rem}
+.mp-legend li{display:flex;gap:10px;align-items:flex-start}
+.mp-legend li .callout{margin-top:3px}
+
+/* ---------- Questions ---------- */
+.kc{margin-top:20px;border:1px dashed #5d5d5d;border-radius:var(--radius);padding:16px;background:var(--bg-2)}
+.kc-label{display:inline-flex;align-items:center;gap:8px;font-size:.8rem;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--orange);margin:0 0 6px}
+.kc-q{font-weight:650;margin-bottom:12px}
+.mq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:12px}
+.mq-grid .kc{margin-top:0}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:10px}
+.opt{display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;padding:12px 14px;min-height:54px;border-radius:9px;border:2px solid var(--line);background:var(--panel-2)}
+.opt:hover:not(:disabled){border-color:var(--accent-hi);background:var(--panel-3)}
+.opt .lbl{font-size:.95rem}
+.opt .mark{font-weight:800;font-size:1.05rem}
+.opt.correct{border-color:var(--green);background:var(--green-soft)}
+.opt.correct .mark::after{content:"✓";color:var(--green)}
+.opt.wrong{border-color:var(--red);background:var(--red-soft)}
+.opt.wrong .mark::after{content:"✕";color:var(--red)}
+.opt:disabled:not(.correct):not(.wrong){opacity:.55}
+.opts.text-opts{grid-template-columns:1fr}
+.fb{margin-top:12px;border-radius:8px;font-size:.95rem}
+.fb:empty{display:none}
+.fb > div{padding:11px 14px;border-left:4px solid}
+.fb .ok{background:var(--green-soft);border-color:var(--green)}
+.fb .bad{background:var(--red-soft);border-color:var(--red)}
+.fb .hint{background:var(--orange-soft);border-color:var(--orange)}
+.fb strong{display:block;margin-bottom:2px}
+.fb p{margin:.2em 0 0}
+
+/* ---------- Key capture ---------- */
+.capture{border:2px dashed #5d5d5d;border-radius:10px;padding:16px;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#181818;cursor:pointer;text-align:center}
+.capture:hover{border-color:var(--accent-hi)}
+.capture:focus{outline:none;border-style:solid;border-color:var(--orange);background:#221c15}
+.capture:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.capture.ok{border-color:var(--green);border-style:solid;background:var(--green-soft)}
+.capture.bad{border-color:var(--red);border-style:solid}
+.cap-prompt{color:var(--muted);font-size:.92rem}
+.capture:focus .cap-prompt::after{content:" — listening…";color:var(--orange);font-weight:700}
+.cap-status{min-height:1.4em;font-size:.92rem;margin:8px 0}
+
+/* ---------- Reference ---------- */
+.ref-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.search{flex:1 1 280px;position:relative}
+.search input{width:100%;padding:12px 14px 12px 42px;border-radius:9px;border:1px solid var(--line);background:#181818;color:var(--text);font:inherit}
+.search input:focus{border-color:var(--accent-hi);outline:3px solid var(--focus);outline-offset:1px}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.ref-count{color:var(--muted);font-size:.9rem;margin-bottom:8px}
+.ref-list{list-style:none;margin:0;padding:0;border:1px solid var(--line-soft);border-radius:var(--radius);overflow:hidden;max-height:620px;overflow-y:auto}
+.ref-row{display:grid;grid-template-columns:minmax(140px,210px) minmax(150px,240px) 1fr;gap:14px;padding:12px 16px;border-bottom:1px solid var(--line-soft);background:var(--panel);align-items:start}
+.ref-row:nth-child(even){background:#2b2b2b}
+.ref-name{font-weight:650}
+.ref-meta{font-size:.8rem;color:var(--muted)}
+.ref-desc{font-size:.93rem}
+.ref-eg{font-size:.85rem;color:var(--muted);margin-top:3px}
+mark{background:rgba(255,171,82,.35);color:inherit;border-radius:3px;padding:0 1px}
+.empty{padding:26px;text-align:center;color:var(--muted)}
+@media (max-width:760px){.ref-row{grid-template-columns:1fr;gap:6px}}
+
+/* ---------- Quiz ---------- */
+.quiz-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.dots{display:flex;flex-wrap:wrap;gap:6px;list-style:none;margin:0;padding:0}
+.dot{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);background:var(--panel-2);font-size:.78rem;font-weight:700}
+.dot:hover{border-color:var(--accent-hi)}
+.dot[aria-current="step"]{border-color:var(--orange);box-shadow:0 0 0 2px rgba(255,171,82,.3)}
+.dot.first{background:var(--green);border-color:var(--green);color:#10291a}
+.dot.later{background:#6a5a33;border-color:var(--orange)}
+.scen{font-size:1.15rem;font-weight:600;margin:4px 0 4px}
+.qsub{color:var(--muted);margin-bottom:14px}
+.hintbox{margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--orange-soft);border-left:4px solid var(--orange)}
+.score-pill{background:var(--panel-2);border:1px solid var(--line);border-radius:99px;padding:5px 12px;font-size:.88rem}
+
+/* ---------- Stack lab ---------- */
+.lab{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:980px){.lab{grid-template-columns:1fr}}
+.vp-shell{border:1px solid #111;border-radius:var(--radius);overflow:hidden;background:#2a2a2a;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.vp-header{display:flex;align-items:center;gap:8px;padding:6px 8px;background:#303030;border-bottom:1px solid #1a1a1a;flex-wrap:wrap;font-size:.85rem}
+.vp-modebox{padding:4px 10px;border-radius:5px;background:#3f3f3f;border:1px solid #545454;font-weight:600}
+.vp-header .spacer{flex:1}
+.seg{display:flex;flex-wrap:wrap;gap:0}
+.seg button{padding:4px 10px;background:#3f3f3f;border:1px solid #545454;font-size:.8rem;margin-left:-1px}
+.seg button:first-child{border-radius:5px 0 0 5px;margin-left:0}.seg button:last-child{border-radius:0 5px 5px 0}
+.seg button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent-hi);color:#fff;position:relative}
+.seg button:hover{border-color:var(--accent-hi)}
+.lab-vp{position:relative;aspect-ratio:4/3;background:radial-gradient(ellipse at 50% 40%,#424242,#333 75%)}
+.lab-vp svg{display:block;width:100%;height:100%}
+.vp-label{position:absolute;left:10px;top:8px;font-size:.8rem;line-height:1.35;color:#e8e8e8;text-shadow:0 1px 2px #000;pointer-events:none}
+.vp-count{position:absolute;right:10px;top:8px;font:600 .78rem var(--mono);background:rgba(20,20,20,.85);border:1px solid #555;border-radius:6px;padding:4px 9px}
+.vp-status{padding:8px 12px;background:#232323;border-top:1px solid #111;font-size:.9rem}
+.vp-status ul{margin:0;padding-left:1.1em}
+.vp-status li{margin:.15em 0}
+.vp-status li.w{color:var(--orange)}
+.vp-status li.g{color:var(--green)}
+.props{background:#2b2b2b;border:1px solid #111;border-radius:var(--radius);padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.props-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:2px 2px 10px;border-bottom:1px solid #3a3a3a;margin-bottom:8px}
+.props-top .obj{font-weight:650}
+.addmenu{position:relative;margin-left:auto}
+.addmenu summary{list-style:none;padding:6px 12px;border-radius:6px;background:#3d3d3d;border:1px solid #585858;cursor:pointer;font-size:.88rem;font-weight:600}
+.addmenu summary::-webkit-details-marker{display:none}
+.addmenu summary:hover,.addmenu[open] summary{border-color:var(--accent-hi)}
+.addmenu .menu{position:absolute;right:0;top:calc(100% + 4px);z-index:5;background:#1f1f1f;border:1px solid #555;border-radius:8px;padding:6px;min-width:220px;box-shadow:0 10px 26px rgba(0,0,0,.55)}
+.addmenu .menu p{margin:2px 6px 6px;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700}
+.addmenu .menu button{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:7px 10px;border:0;border-radius:5px;background:transparent;font-size:.9rem}
+.addmenu .menu button:hover,.addmenu .menu button:focus-visible{background:var(--accent)}
+.addmenu .menu button svg{width:15px;height:15px;color:#7fb0ff}
+.mstack{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.ms{background:#303030;border:1px solid #3e3e3e;border-radius:7px}
+.ms.dragging{opacity:.45}
+.ms.drop-target,.oi.drop-target{box-shadow:0 -3px 0 var(--orange)}
+.ms.drop-after,.oi.drop-after{box-shadow:0 3px 0 var(--orange)}
+.ms.off .ms-name{color:#8a8a8a;text-decoration:line-through}
+.ms-h{display:flex;align-items:center;gap:5px;padding:5px 6px;flex-wrap:wrap}
+.ms-idx{font:700 .72rem var(--mono);color:var(--muted);width:16px;text-align:center}
+.ms-name{flex:1 1 120px;min-width:0;font-weight:650;font-size:.9rem;display:flex;align-items:center;gap:6px}
+.ms-name svg{width:15px;height:15px;color:#7fb0ff;flex:none}
+.ib{width:30px;height:30px;display:inline-grid;place-items:center;border-radius:5px;background:#3e3e3e;border:1px solid #4d4d4d;font-size:.85rem;padding:0;flex:none}
+.ib:hover:not(:disabled){border-color:var(--accent-hi)}
+.ib:disabled{opacity:.35}
+.ib svg{width:15px;height:15px}
+.ib[aria-pressed="false"]{background:#262626;color:#7a7a7a}
+.ib.grip{cursor:grab;background:transparent;border-color:transparent;color:var(--muted)}
+.ib.grip:focus-visible{background:#3e3e3e}
+.ms-b{padding:2px 10px 10px 30px;display:grid;gap:8px;font-size:.86rem}
+.ms-b label{display:grid;grid-template-columns:110px 1fr 36px;align-items:center;gap:8px}
+.ms-b label.cb{display:flex;gap:8px}
+.ms-b label.cb input{width:17px;height:17px;accent-color:var(--accent-hi)}
+.ms-b output{font:600 .8rem var(--mono);text-align:right}
+.ms-empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #555;border-radius:7px;font-size:.9rem}
+.goals{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.goal{display:flex;gap:10px;align-items:flex-start;background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:11px 13px}
+.goal.done{border-color:rgba(116,212,148,.6);background:linear-gradient(90deg,var(--green-soft),var(--panel) 60%)}
+.goal-st{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:.75rem;font-weight:800;color:var(--muted)}
+.goal.done .goal-st{background:var(--green);border-color:var(--green);color:#10291a}
+.goal h4{margin:0 0 2px;font-size:.98rem}
+.goal p{margin:0;font-size:.9rem;color:var(--muted)}
+
+/* ---------- Order puzzles ---------- */
+.ord-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:14px}
+.ord{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:16px}
+.ord.solved{border-color:rgba(116,212,148,.6)}
+.ord h3{font-size:1.05rem;margin-bottom:4px}
+.ord > p{color:var(--muted);font-size:.93rem;margin-bottom:10px}
+.olist{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px}
+.oi{display:flex;align-items:center;gap:6px;background:#303030;border:1px solid #444;border-radius:7px;padding:5px 6px}
+.oi .ms-name{flex:1}
+.oi.dragging{opacity:.45}
+.oi.drop-target{box-shadow:0 -3px 0 var(--orange)}
+.oi.right{border-color:var(--green)}
+.oi.wrongpos{border-color:var(--red)}
+
+/* ---------- Topology & which-modifier ---------- */
+.spot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:14px}
+.spot{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:16px}
+.spot.solved{border-color:rgba(116,212,148,.6)}
+.spot .dgrow{justify-content:center;margin-top:0}
+.spot .opts{grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr))}
+.spot .opt{min-height:46px;padding:9px 11px}
+
+/* ---------- Project ---------- */
+.proj{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+.proj li{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 16px;display:grid;grid-template-columns:auto 1fr;gap:14px}
+.proj li.done{border-color:rgba(116,212,148,.6);background:linear-gradient(90deg,var(--green-soft),var(--panel) 50%)}
+.proj input[type=checkbox]{width:24px;height:24px;accent-color:var(--green);margin-top:2px;cursor:pointer}
+.proj h4{margin:0 0 3px;font-size:1.02rem}
+.proj p{margin:0;color:var(--muted);font-size:.94rem}
+.proj .keys-list{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:9px}
+.stackchip{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:.82rem;margin-top:8px}
+.stackchip span.m{background:#303030;border:1px solid #4a4a4a;border-radius:5px;padding:2px 8px;color:var(--text)}
+.stackchip span.a{color:var(--orange)}
+
+/* ---------- Review deck ---------- */
+.deck-stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 16px}
+.box-stat{flex:1 1 100px;background:var(--panel-2);border-radius:8px;padding:10px;text-align:center;font-size:.82rem;color:var(--muted)}
+.box-stat b{display:block;font-size:1.5rem;color:var(--text)}
+.box-stat.m b{color:var(--green)}
+.flash{max-width:680px;margin:0 auto;text-align:center}
+.flash h3{font-size:1.35rem;margin-top:6px}
+.flash .back{margin-top:16px;padding:16px;border-radius:10px;background:var(--accent-soft);text-align:left}
+.flash .back kbd.k{font-size:.95rem;height:2.3em}
+.flash .capwrap{text-align:left}
+.rate{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.rate button{padding:12px 8px;border-radius:9px;border:2px solid var(--line);background:var(--panel-2);font-weight:650}
+.rate .r-no:hover{border-color:var(--red)}.rate .r-unsure:hover{border-color:var(--orange)}.rate .r-yes:hover{border-color:var(--green)}
+
+/* ---------- Final & summary ---------- */
+.final-card{max-width:860px;margin:0 auto}
+.fc-top{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.fc-q{font-size:1.15rem;font-weight:650;margin-bottom:4px}
+.big-score{font-size:clamp(2.6rem,2rem + 3vw,4rem);font-weight:800;line-height:1;color:var(--orange)}
+.review{list-style:none;padding:0;margin:12px 0 0;display:flex;flex-direction:column;gap:8px}
+.review li{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--panel-2);border-radius:8px;padding:10px 12px;font-size:.93rem}
+.type-tag{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--panel-3);border-radius:4px;padding:2px 7px}
+.sum-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media (max-width:860px){.sum-grid{grid-template-columns:1fr}}
+.sum-table{width:100%;border-collapse:collapse;font-size:.95rem}
+.sum-table td{padding:9px 4px;border-bottom:1px solid var(--line-soft)}
+.sum-table td:last-child{text-align:right;font-weight:650}
+.sum-table tr.done td:last-child{color:var(--green)}
+.next-part{margin-top:22px;display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;background:linear-gradient(120deg,#2d2a26,#262b33);border:1px solid var(--line);border-radius:var(--radius);padding:20px}
+.next-part .orb{width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffd9a8,#e07a2f 45%,#5a2a0c 85%);box-shadow:0 8px 20px rgba(0,0,0,.5)}
+@media (max-width:560px){.next-part{grid-template-columns:1fr}}
+footer{border-top:1px solid var(--line-soft);margin-top:40px;padding:22px 16px;color:var(--muted);font-size:.88rem;text-align:center}
+.toast{position:fixed;left:50%;bottom:20px;transform:translate(-50%,calc(100% + 40px));visibility:hidden;transition:transform .3s,visibility .3s;background:var(--green);color:#10291a;font-weight:700;padding:10px 18px;border-radius:99px;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:80;max-width:calc(100vw - 32px);text-align:center}
+.toast.show{transform:translate(-50%,0);visibility:visible}
+
+/* ---------- Print (cheat sheet & summary) ---------- */
+#print-area{display:none}
+@media print{
+  html,body{background:#fff!important;color:#000!important}
+  body > *:not(#print-area){display:none!important}
+  #print-area{display:block!important;font:10pt/1.4 Arial,Helvetica,sans-serif;color:#000}
+  #print-area h1{font-size:17pt;margin:0 0 3pt}
+  #print-area h2{font-size:10.5pt;margin:7pt 0 3pt;padding-bottom:2pt;border-bottom:1.2pt solid #000}
+  #print-area kbd.k{background:#fff!important;color:#000!important;border:1px solid #333!important;box-shadow:none!important;height:auto;min-width:0;padding:0 3pt;font-size:7.5pt;border-radius:3px}
+  #print-area .op{color:#333;font-size:7pt}
+  #print-area .keyseq{gap:2pt}
+  .cheat{columns:3;column-gap:14pt;font-size:8pt}
+  .cheat section{break-inside:avoid;margin-bottom:5pt}
+  .cheat .row{display:flex;justify-content:space-between;align-items:center;gap:6pt;border-bottom:1px dotted #aaa;padding:1.5pt 0}
+  .cheat p{margin:0 0 2pt}
+  .cheat ol,.cheat ul{margin:0;padding-left:12pt}
+  .pa-table{width:100%;border-collapse:collapse;margin-top:6pt}
+  .pa-table td{border-bottom:1px solid #bbb;padding:5pt 3pt}
+  .pa-table td:last-child{text-align:right;font-weight:bold}
+  .pa-box{border:1px solid #999;padding:8pt;margin-top:6pt;white-space:pre-wrap}
+  @page{margin:12mm}
+}
+.wl-ctrls{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:4px 18px;margin-top:12px}
+.wl-ctrls label{display:block;font-size:.9rem;margin:6px 0}
+.wl-key{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:.85rem}
+.wramp{display:inline-block;width:160px;height:10px;border-radius:99px;background:linear-gradient(90deg,#0000db,#00dbdb,#00db00,#dbdb00,#db0000)}
+.lab-vp svg{touch-action:none;cursor:crosshair}
+.lab-vp svg:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
+.cat-dg p{margin:8px 0 0;color:var(--muted);font-size:.92rem}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#intro">
+      <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect x="2" y="4" width="26" height="22" rx="5" fill="#3d3d3d" stroke="#6a6a6a"/><rect x="2" y="21" width="26" height="5" rx="2" fill="#1d1d1d"/><path d="M8 19c3-1 4-6 7-8s5 0 6-3" fill="none" stroke="#ffab52" stroke-width="2.4" stroke-linecap="round"/><circle cx="21.5" cy="7.5" r="2.4" fill="#ff6060"/><circle cx="8" cy="19" r="2.1" fill="#4f7bff"/></svg>
+      <span>Weight Painting</span><small>Part 6</small>
+    </a>
+    <details class="prog" id="prog">
+      <summary aria-label="Your progress"><span>Progress</span> <strong id="prog-pct">0%</strong> <span class="prog-track" aria-hidden="true"><span id="prog-fill"></span></span></summary>
+      <div class="prog-pop">
+        <h3 style="font-size:1rem">Your progress</h3>
+        <ul id="prog-list"></ul>
+        <p style="font-size:.82rem;color:var(--muted)">Progress is saved in this browser on this device. Use the <a href="#summary">summary</a> to print or share it.</p>
+        <button class="btn small" id="reset-btn" type="button">Reset all progress</button>
+      </div>
+    </details>
+    <nav class="nav-wrap" aria-label="Sections">
+      <ul class="nav">
+        <li><a href="#intro" data-sec="intro">Intro</a></li>
+<li><a href="#warmup" data-sec="warmup">Warm-up <span class="badge" id="nb-warm">0</span></a></li>
+<li><a href="#learn" data-sec="learn">Learn <span class="badge" id="nb-learn">0</span></a></li>
+<li><a href="#reference" data-sec="reference">Reference</a></li>
+<li><a href="#lab" data-sec="lab">Weight lab <span class="badge" id="nb-lab">0</span></a></li>
+<li><a href="#order" data-sec="order">Step order <span class="badge" id="nb-order">0</span></a></li>
+<li><a href="#topo" data-sec="topo">Weight problems <span class="badge" id="nb-topo">0</span></a></li>
+<li><a href="#which" data-sec="which">Which tool? <span class="badge" id="nb-which">0</span></a></li>
+<li><a href="#quiz" data-sec="quiz">Scenarios <span class="badge" id="nb-quiz">0</span></a></li>
+<li><a href="#mistakes" data-sec="mistakes">Mistakes <span class="badge" id="nb-mist">0</span></a></li>
+<li><a href="#project" data-sec="project">Project <span class="badge" id="nb-proj">0</span></a></li>
+<li><a href="#review" data-sec="review">Review deck <span class="badge" id="nb-review">0</span></a></li>
+<li><a href="#final" data-sec="final">Final challenge <span class="badge" id="nb-final">0</span></a></li>
+<li><a href="#summary" data-sec="summary">Summary</a></li>
+</ul>
+    </nav>
+  </div>
+  <div class="prog-bar" role="progressbar" aria-label="Overall progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="prog-bar-fill"></span></div>
+</header>
+
+<main id="main">
+
+<!-- ================= INTRO ================= -->
+<section class="block" id="intro" aria-labelledby="intro-h">
+  <div class="hero"><div>
+    <div class="part-tag"><b>Part 6</b><span>Blender series · follows <a href="blender-rigging.html">Rigging</a> · Blender 4.x · built-in tools only</span></div>
+    <h1 id="intro-h">Blender <span>Weight Painting</span></h1>
+    <p class="lead">Your rig moves, but some joints crease, pinch or drag the wrong parts along. Learn how weights really work, paint them while the rig is posed, clean them up and test them in strong poses.</p>
+    <div class="btn-row"><a class="btn primary" href="#warmup">Start with the warm-up</a><a class="btn" href="#lab">Jump to the weight lab</a></div>
+  </div><div class="hero-stack" id="hero-stack" aria-hidden="true"></div></div>
+  <div class="panel" style="margin-top:32px"><h2 style="font-size:1.3rem">Learning outcomes</h2><p style="color:var(--muted)">By the end you will be able to:</p><ul class="outcomes" id="outcomes"><li>explain what a weight is and how vertex groups share a vertex;</li><li>enter Weight Paint with a posable rig and choose the right bone;</li><li>use Draw, Subtract and Blur with sensible Radius, Strength and Weight;</li><li>clean weights with Auto Normalize, Normalize All, Clean and Mirror;</li><li>test joints in poses and use Preserve Volume and the Deform setting;</li><li>set exact weights in Edit Mode and fix vertices that are left behind.</li></ul></div>
+  <h2 style="margin-top:36px">What is weighting?</h2><p class="lead">Weights decide how a mesh bends when the bones move. Four ideas matter most.</p><div class="grid-3"><div class="panel benefit"><h3><span class="ic" aria-hidden="true">◐</span>Weights</h3><p>A number from 0 to 1 says how much a bone moves each vertex.</p></div><div class="panel benefit"><h3><span class="ic" aria-hidden="true">⬢</span>Vertex groups</h3><p>Each deforming bone has a group with the same name.</p></div><div class="panel benefit"><h3><span class="ic" aria-hidden="true">◇</span>Sharing</h3><p>A vertex in two groups moves part of the way with each bone.</p></div><div class="panel benefit"><h3><span class="ic" aria-hidden="true">✦</span>Testing</h3><p>Pose the joint, paint, then pose it again.</p></div></div>
+  <h2 style="margin-top:36px">How to use this resource</h2><ol class="steps"><li><a href="#warmup">Warm-up</a><p>Check the rigging shortcuts from Part 5.</p></li><li><a href="#learn">Learn</a><p>6 topics from weights to fixes, each with cards and a quick check.</p></li><li><a href="#reference">Reference</a><p>Search techniques, settings and shortcuts. Print a cheat sheet.</p></li><li><a href="#lab">Weight lab</a><p>Paint a two-bone arm and watch it bend.</p></li><li><a href="#order">Step order</a><p>Put weighting steps in the right order.</p></li><li><a href="#topo">Weight problems</a><p>Diagnose what is wrong with the weights.</p></li><li><a href="#which">Which tool?</a><p>Name the tool that changed the weights.</p></li><li><a href="#quiz">Scenarios</a><p>Choose the best approach to real weighting problems.</p></li><li><a href="#mistakes">Mistakes</a><p>Why weights go wrong, and how to fix them.</p></li><li><a href="#project">Project</a><p>Weight paint your Part 5 rig.</p></li><li><a href="#review">Review deck</a><p>Spaced-repetition flashcards.</p></li><li><a href="#final">Final challenge</a><p>A scored mix of questions, key presses and pictures.</p></li></ol>
+  <h2 style="margin-top:36px">Good to know</h2><div class="tips"><div class="tip"><h3>Built-in tools only</h3><p>Everything here uses Blender’s own Weight Paint mode and Weights menu. No add-ons are needed.</p></div><div class="tip"><h3>Paint while posed</h3><p>Joints look fine when they are straight. Bend the joint first, then paint.</p></div><div class="tip"><h3>Save versions</h3><p>Save a new version before big clean-ups such as Normalize All or Mirror.</p></div><div class="tip"><h3>Using a Mac?</h3><p>Save and undo use <kbd class="k">Cmd</kbd>, and <kbd class="k">Alt</kbd> is labelled <kbd class="k">Option</kbd>.</p><button class="btn small mac-toggle" type="button" aria-pressed="false">Show Mac keys</button></div></div>
+  <div class="panel" style="margin-top:16px">
+    <h3 style="font-size:1rem">How to read the keys</h3>
+    <div class="legend">
+      <div><span class="keyseq"><kbd class="k">Shift</kbd><span class="op">+</span><kbd class="k">F</kbd></span> hold the keys together</div>
+      <div><span class="keyseq"><kbd class="k">M</kbd><span class="op">then</span><kbd class="k">B</kbd></span> press one after the other</div>
+      <div><span class="keyseq"><kbd class="k">Numpad 1</kbd></span> number pad key</div>
+      <div><span class="keyseq"><kbd class="k mouse">Alt+Left click</kbd></span> mouse action</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= WARM-UP ================= -->
+<section class="block" id="warmup" aria-labelledby="warm-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Before you start · Recap of earlier parts</p>
+      <h2 id="warm-h">Warm-up: the shortcuts you will need</h2>
+      <p class="lead">This resource builds on <a href="blender-rigging.html">Part 5</a> and the shortcuts from <a href="blender-shortcut-trainer.html">Part 1</a>. Read the recap, then try the quick warm-up quiz.</p>
+    </div>
+  </div>
+  <div class="recap" id="recap"></div>
+  <div id="warm-box"></div>
+</section>
+
+<!-- ================= LEARN ================= -->
+<section class="block" id="learn" aria-labelledby="learn-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 1 · Explore</p>
+      <h2 id="learn-h">Learn: weights, painting and testing</h2>
+      <p class="lead">Filter by topic, then choose a category. Open each card to see what it does, when to use it, its key settings, shortcuts and a common mistake. Finish each category with a quick check. Add tricky cards to your review deck.</p>
+    </div>
+  </div>
+  <div class="chips" id="learn-groups" role="group" aria-label="Filter categories by topic"></div>
+  <div class="tabs" role="tablist" aria-label="Learning categories" id="tabs"></div>
+  <div class="panel" role="tabpanel" id="learn-panel" tabindex="0"></div>
+</section>
+
+<!-- ================= REFERENCE ================= -->
+<section class="block" id="reference" aria-labelledby="ref-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 2 · Look it up</p>
+      <h2 id="ref-h">Searchable reference</h2>
+      <p class="lead">Search techniques, settings and shortcuts. Try <em>blur</em>, <em>normalize</em>, <em>deform</em> or <em>ctrl g</em>.</p>
+    </div>
+    <div class="btn-row">
+      <button class="btn mac-toggle" type="button" aria-pressed="false">Show Mac keys</button>
+      <button class="btn" id="print-cheat" type="button">🖨 Print cheat sheet</button>
+    </div>
+  </div>
+  <div class="ref-tools">
+    <label class="search">
+      <span class="sr-only">Search the reference</span>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="ref-q" placeholder="Search techniques, settings or keys…" autocomplete="off">
+    </label>
+    <label><span class="sr-only">Filter by type</span>
+      <select id="ref-type">
+        <option value="all">All types</option>
+        <option value="Setting">Settings</option>
+        <option value="Shortcut">Shortcuts</option>
+        <option value="Technique">Techniques &amp; concepts</option>
+      </select>
+    </label>
+    <button class="btn" id="ref-clear" type="button">Clear</button>
+  </div>
+  <div class="chips" id="ref-chips" role="group" aria-label="Filter by category"></div>
+  <p class="ref-count" id="ref-count" aria-live="polite"></p>
+  <ul class="ref-list" id="ref-list"></ul>
+</section>
+
+<!-- ================= WEIGHT LAB ================= -->
+<section class="block" id="lab" aria-labelledby="lab-h">
+  <div class="sec-head"><div><p class="eyebrow">Step 3 · Experiment</p><h2 id="lab-h">Weight painting lab</h2><p class="lead">This arm has two bones and two vertex groups, just like an elbow in your rig. Bend it, look at the weights, paint them and watch how the mesh changes. Complete the goals on the right.</p></div></div>
+  <div class="lab"><div class="panel" id="lab-view"></div><div><h3 style="font-size:1.05rem">Goals</h3><ol class="goals" id="lab-goals"></ol></div></div>
+</section>
+
+<!-- ================= ORDER ================= -->
+<section class="block" id="order" aria-labelledby="order-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 4 · Apply</p>
+      <h2 id="order-h">Put the weighting steps in order</h2>
+      <p class="lead">Each list is jumbled. Put the first step at the top. Drag the ⠿ handle, use the ▲ ▼ buttons, or focus a handle and press the up and down arrow keys. Then check your answer.</p>
+    </div>
+  </div>
+  <div class="ord-grid" id="order-box"></div>
+  <p class="sr-only" id="order-live" aria-live="assertive"></p>
+</section>
+
+<!-- ================= WEIGHT PROBLEMS ================= -->
+<section class="block" id="topo" aria-labelledby="topo-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 5 · Analyse</p>
+      <h2 id="topo-h">Spot the weight problem</h2>
+      <p class="lead">Read each description, look at the picture and choose what is wrong with the weights. One of them has nothing wrong with it!</p>
+    </div>
+  </div>
+  <div class="spot-grid" id="topo-box"></div>
+</section>
+
+<!-- ================= WHICH TOOL ================= -->
+<section class="block" id="which" aria-labelledby="which-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 6 · Recognise</p>
+      <h2 id="which-h">Which tool?</h2>
+      <p class="lead">Each pair shows the weights before and after one tool or setting. Which was it?</p>
+    </div>
+  </div>
+  <div class="spot-grid" id="which-box"></div>
+</section>
+
+<!-- ================= SCENARIO QUIZ ================= -->
+<section class="block" id="quiz" aria-labelledby="quiz-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 7 · Decide</p>
+      <h2 id="quiz-h">Scenario quiz: choose the best approach</h2>
+      <p class="lead">Each scenario is a real weighting problem. Several answers might work, but only one is the best approach. Get it wrong and you get a hint before the answer is revealed.</p>
+    </div>
+  </div>
+  <div class="panel" id="quiz-box"></div>
+</section>
+
+<!-- ================= MISTAKES ================= -->
+<section class="block" id="mistakes" aria-labelledby="mist-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 8 · Troubleshoot</p>
+      <h2 id="mist-h">Common mistakes</h2>
+      <p class="lead">Why weights go wrong, and how to fix them. Then try the problem-solving questions.</p>
+    </div>
+  </div>
+  <div id="mist-box"></div>
+</section>
+
+<!-- ================= PROJECT ================= -->
+<section class="block" id="project" aria-labelledby="proj-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 9 · Make something</p>
+      <h2 id="proj-h">Mini project: weight paint your rig</h2>
+      <p class="lead">Open the rig from Part 5 and make every joint bend cleanly. Tick each step as you finish it. It should take about 60 to 90 minutes.</p>
+    </div>
+  </div>
+  <div id="proj-box"></div>
+</section>
+
+<!-- ================= REVIEW ================= -->
+<section class="block" id="review" aria-labelledby="rev-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 10 · Remember</p>
+      <h2 id="rev-h">Review deck</h2>
+      <p class="lead">Spaced-repetition flashcards. Cards you get wrong in activities are added automatically. Cards you know move up a box and come back after longer gaps (1, 3, then 7 days); cards you forget go back to the start. Five minutes at the start of each session works well.</p>
+    </div>
+  </div>
+  <div class="panel" id="review-box"></div>
+</section>
+
+<!-- ================= FINAL ================= -->
+<section class="block" id="final" aria-labelledby="final-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 11 · Test yourself</p>
+      <h2 id="final-h">Final challenge</h2>
+      <p class="lead">12 random questions: multiple choice, “press the shortcut” and “which tool?” pictures. Stuck? Use a hint before you answer. A wrong first answer also gives you a hint and a second try for half a mark.</p>
+    </div>
+  </div>
+  <div class="panel final-card" id="final-box"></div>
+</section>
+
+<!-- ================= SUMMARY ================= -->
+<section class="block" id="summary" aria-labelledby="sum-h">
+  <div class="sec-head">
+    <div>
+      <p class="eyebrow">Step 12 · Show what you know</p>
+      <h2 id="sum-h">Your learning summary</h2>
+      <p class="lead">Add your name, then print it, save it as a PDF (choose “Save as PDF” in the print window) or copy it to paste into your learning platform.</p>
+    </div>
+  </div>
+  <div class="sum-grid">
+    <div class="panel">
+      <p><label for="sum-name"><strong>Your name</strong></label><br><input type="text" id="sum-name" autocomplete="name" placeholder="Type your name"></p>
+      <table class="sum-table" id="sum-table"></table>
+    </div>
+    <div class="panel">
+      <h3 style="font-size:1rem">Your reflection</h3>
+      <p id="sum-reflect" style="color:var(--muted);white-space:pre-wrap"></p>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn primary" id="sum-print" type="button">🖨 Print / save as PDF</button>
+        <button class="btn" id="sum-copy" type="button">Copy as text</button>
+      </div>
+      <p style="font-size:.85rem;color:var(--muted);margin-top:12px">Write your reflection at the end of the <a href="#project">mini project</a>.</p>
+    </div>
+  </div>
+  <div class="next-part"><div class="orb" aria-hidden="true"></div><div><p class="eyebrow" style="margin-bottom:2px">Going further</p><h3 style="margin-bottom:.3em">Animation</h3><p style="margin:0;color:var(--muted)">With clean weights your rig is ready to animate. You can set keyframes with I, use the Timeline and Dope Sheet, and make a short walk or wave. These are not covered in this series yet.</p></div></div>
+</section>
+
+<!-- ================= TUTORS ================= -->
+<section class="block" id="tutors" aria-labelledby="tut-h"><p class="eyebrow">For tutors</p><h2 id="tut-h">Teacher notes</h2>
+ <details class="acc"><summary>Purpose and audience</summary><div class="acc-body"><p>Part 6 of an interactive Blender series. It follows Part 5 (Rigging) and teaches learners to fix and improve the weights on the rig they built, using Blender’s built-in Weight Paint mode, Weights menu and Armature modifier only. It uses the same layout, progress tracking, searchable reference, review deck and final challenge as the earlier parts.</p><p>The sequence moves from explanation (Learn) through experimentation (weight lab) and analysis (step order, weight problems, which tool) to decision making (scenarios), retrieval practice (review deck, final challenge) and application in Blender (mini project).</p></div></details>
+ <details class="acc"><summary>Suggested session plan (one session of about 2 hours)</summary><div class="acc-body"><p><strong>Starter (10 min):</strong> warm-up quiz, then pose a learner’s Part 5 rig on screen and ask where it looks wrong.</p><p><strong>Demo (25 min):</strong> enter Weight Paint with the armature, select bones, fix one elbow with Draw, Subtract and Blur while it is bent, then show Normalize All, Clean and Preserve Volume.</p><p><strong>Explore (25 min):</strong> Learn categories and the weight lab goals. Fast finishers try Weight problems and Which tool?</p><p><strong>Student work (50 min):</strong> the mini project in Blender. <strong>Plenary (10 min):</strong> final challenge and printed summary.</p></div></details>
+ <details class="acc"><summary>Differentiation and assessment</summary><div class="acc-body"><p><strong>Support:</strong> use hints, multiple-choice-only mode in the final challenge and the printed cheat sheet. Let learners fix one arm only and mirror it. <strong>Stretch:</strong> the extension tasks (Preserve Volume, Limit Total, twist bones) and explaining the ratio rule aloud. <strong>Evidence:</strong> the printed summary, before-and-after screenshots of one joint bent to its limit, and three posed renders.</p><p>Results are self-reported and stored only on the student’s device, so treat them as formative evidence.</p></div></details>
+ <details class="acc"><summary>Practical and version notes</summary><div class="acc-body"><p>The resource is a single HTML file with no external libraries, so it works offline. Content is based on Blender 4.x with the default keymap. Version notes: selecting bones in Weight Paint has changed several times. In 3.x it was Ctrl-click, in 4.0 Ctrl+Shift-click, and from 4.1 there is a Bone Selection mode in the header (shortcut 3) with Alt-click. The Vertex Groups list always works. From 4.3, brushes are assets, so brush names in the list may differ slightly from the tool names used here.</p><p>The weight lab is a 2D teaching model, not Blender itself. Like Blender’s Armature modifier, it bends each vertex by the ratio of its weights, and a vertex with no weight stays behind. Preserve Volume in the lab is a simplified version of Blender’s dual quaternion method.</p></div></details></section>
+</main>
+
+<footer>
+  <p>Part 6 of the Blender series. Content is based on Blender 4.x with the default keymap (left-click select) and built-in features only. Previous: <a href="blender-rigging.html">Part 5 — Rigging</a></p>
+  <p>Blender is a trademark of the Blender Foundation. This is an independent learning resource. · <a href="#tutors">Teacher notes</a></p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="print-area"></div>
+
+
+<script>
+(function(){
+'use strict';
+
+/* =========================================================
+   UTILITIES
+   ========================================================= */
+const $ = (s,r=document)=>r.querySelector(s);
+const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+function h(tag, attrs, ...kids){
+  const el = document.createElement(tag);
+  if(attrs) for(const [k,v] of Object.entries(attrs)){
+    if(v==null || v===false) continue;
+    if(k==='class') el.className = v;
+    else if(k==='text') el.textContent = v;
+    else if(k==='html') el.innerHTML = v;
+    else if(k.startsWith('on') && typeof v==='function') el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v===true ? '' : v);
+  }
+  for(const c of kids.flat()){
+    if(c==null || c===false) continue;
+    el.append(c.nodeType ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function add(el,...kids){ el.append(...kids.flat().filter(x=>x!=null&&x!==false)); }
+const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+let uid=0; const nid=p=>(p||'u')+(++uid);
+
+/* ---------- Progress store ---------- */
+const STORE='blender-weight-painting-v1';
+function blank(){ return {warm:{},cats:{},checks:{},lab:{},order:{},topo:{},which:{},quiz:{},mist:{},proj:{},deck:{},final:{best:null,done:false},reflect:'',name:''}; }
+let P = blank();
+try{ const raw=localStorage.getItem(STORE); if(raw){ const o=JSON.parse(raw); P=Object.assign(blank(),o); P.final=Object.assign({best:null,done:false},o.final||{}); } }catch(e){}
+let PART1=null;
+try{ const r1=localStorage.getItem('blender-shortcut-trainer-v1'); if(r1) PART1=JSON.parse(r1); }catch(e){}
+let PREV=null;
+try{ const r5=localStorage.getItem('blender-rigging-v1'); if(r5) PREV=JSON.parse(r5); }catch(e){}
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(P)); }catch(e){} updateProgress(); }
+
+/* ---------- Keys ---------- */
+let MAC = typeof P.mac==='boolean' ? P.mac : (PART1 && typeof PART1.mac==='boolean') ? PART1.mac : /Mac|iPhone|iPad/.test(navigator.platform||navigator.userAgent||'');
+const CMD_COMBOS = new Set(['Ctrl+S','Ctrl+Shift+S','Ctrl+O','Ctrl+N','Ctrl+Z','Ctrl+Shift+Z']);
+const SYM = {'`':'grave accent','.':'full stop',',':'comma','/':'slash'};
+function kbd(label){
+  let hold=false;
+  if(/\(hold\)/.test(label)){ hold=true; label=label.replace(/\s*\(hold\)/,''); }
+  const mouse = /MMB|click|Scroll|drag/i.test(label);
+  const k = h('kbd',{class:'k'+(mouse?' mouse':'')});
+  const m = label.match(/^(Numpad )?([`.,\/])$/);
+  if(m){ k.append(h('span',{'aria-hidden':'true'},label), h('span',{class:'sr-only'},(m[1]||'')+SYM[m[2]])); }
+  else k.textContent = label;
+  const w = h('span',{class:'kwrap'},k);
+  if(hold) w.append(h('span',{class:'op'},'hold'));
+  return w;
+}
+function macStep(step){
+  if(!MAC) return step;
+  if(CMD_COMBOS.has(step)) step=step.replace('Ctrl','Cmd');
+  return step.replace(/\bAlt\b/g,'Option');
+}
+// Spec format: alternatives "A / B", sequences "A then B", ranges "Ctrl+1 to Ctrl+5", combos "Ctrl+B"
+function renderKeys(spec){
+  const wrap = h('span',{class:'keyseq'});
+  spec.split(' / ').forEach((alt,ai)=>{
+    if(ai) wrap.append(h('span',{class:'op'},'or'));
+    alt.split(/ (then|to) /).forEach((step,si)=>{
+      if(si%2){ wrap.append(h('span',{class:'op'},step)); return; }
+      const s=macStep(step.trim());
+      // keep "Left click" etc. together: split only on + between tokens
+      s.split('+').forEach((key,ki)=>{
+        if(ki) wrap.append(h('span',{class:'op'},'+'));
+        wrap.append(kbd(key.trim()));
+      });
+    });
+  });
+  return wrap;
+}
+const keysText = spec => spec.split(' / ').map(a=>a.split(/ (then|to) /).map((s,i)=>i%2?(s==='then'?', then ':' to '):macStep(s.trim())).join('')).join(' or ');
+let toastT;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+function feedback(el, kind, title, text){
+  el.innerHTML='';
+  el.append(h('div',{class:kind}, h('strong',{},title), text ? (text.nodeType?text:h('p',{},text)) : null));
+}
+
+/* ---------- Key capture (press the real shortcut) ---------- */
+function evToken(e){
+  const c=e.code||'', k=e.key||'';
+  if(c.startsWith('Numpad')){ const r=c.slice(6); return ({Decimal:'num.',Enter:'enter',Divide:'num/',Multiply:'num*',Subtract:'num-',Add:'num+'})[r] || 'num'+r; }
+  if(c.startsWith('Digit')) return c.slice(5);
+  if(/^[a-z]$/i.test(k)) return k.toLowerCase();
+  if(/^Key[A-Z]$/.test(c)) return c.slice(3).toLowerCase();
+  const map={Backquote:'`',Period:'.',Comma:',',Slash:'/',Minus:'-',Space:'space',Tab:'tab',Enter:'enter',Escape:'esc',Delete:'delete',Home:'home',Backspace:'backspace',PageUp:'pageup',PageDown:'pagedown'};
+  if(map[c]) return map[c];
+  if(k===' ') return 'space'; if(k==='Escape') return 'esc';
+  return k.toLowerCase();
+}
+const MOD_TOKENS=['shift','control','alt','meta','capslock','numlock','altgraph','os',''];
+function evCombo(e){ return {ctrl:!!(e.ctrlKey||e.metaKey), shift:!!e.shiftKey, alt:!!e.altKey, main:evToken(e)}; }
+function parseCombo(str){
+  const parts=str.split('+').map(s=>s.trim()); const main=parts.pop().toLowerCase();
+  const mods=parts.map(p=>p.toLowerCase());
+  return {ctrl:mods.includes('ctrl')||mods.includes('cmd'), shift:mods.includes('shift'), alt:mods.includes('alt'),
+    main: main.startsWith('numpad ') ? 'num'+main.slice(7) : main};
+}
+const sameCombo=(a,b)=>a.ctrl===b.ctrl&&a.shift===b.shift&&a.alt===b.alt&&a.main===b.main;
+function comboText(c){
+  let m=c.main;
+  if(m.startsWith('num') && m.length>3) m='Numpad '+m.slice(3);
+  else if(m==='esc') m='Esc'; else if(m.length===1) m=m.toUpperCase(); else m=m.charAt(0).toUpperCase()+m.slice(1);
+  return [c.ctrl?'Ctrl':'',c.alt?'Alt':'',c.shift?'Shift':'',m].filter(Boolean).join('+');
+}
+const MOUSE_RE=/MMB|click|Scroll|drag|\(hold\)| to /i;
+// Browser-reserved combinations cannot be captured reliably, so these are always asked as multiple choice
+const BLOCKED=new Set(['Ctrl+N','Ctrl+T','Ctrl+W','Ctrl+R','Ctrl+E','Ctrl+Tab','Ctrl+0','Ctrl+1','Ctrl+2','Ctrl+3','Ctrl+4','Ctrl+5','F12','F11','Ctrl+F','Ctrl+G']);
+function pressAlts(spec){
+  return spec.split(' / ').filter(a=>!MOUSE_RE.test(a) && a.split(' then ').every(s=>!BLOCKED.has(s.trim())))
+    .map(a=>a.split(' then ').map(s=>parseCombo(s.trim())));
+}
+const pressable = spec => pressAlts(spec).length>0;
+function keyCapture(spec, {onDone, hint, tries=2, onFallback, onMiss}){
+  const alts=pressAlts(spec); let steps=[], left=tries, finished=false;
+  const shown=h('span',{class:'cap-keys'});
+  const status=h('p',{class:'cap-status','aria-live':'polite'});
+  const box=h('div',{class:'capture',tabindex:'0',role:'application','aria-label':'Answer area. Select it, then press the shortcut keys.'},
+    h('span',{class:'cap-prompt'},'Click here, then press the shortcut'), shown);
+  const showSteps=()=>{ shown.innerHTML=''; if(steps.length) shown.append(renderKeys(steps.map(comboText).join(' then '))); };
+  box.addEventListener('click',()=>box.focus());
+  box.addEventListener('keydown',e=>{
+    if(finished) return;
+    const c=evCombo(e);
+    if(MOD_TOKENS.includes(c.main)) return;
+    e.preventDefault(); e.stopPropagation();
+    steps.push(c); showSteps();
+    if(alts.some(a=>a.length===steps.length && a.every((x,i)=>sameCombo(x,steps[i])))){
+      finished=true; box.classList.add('ok'); status.textContent='';
+      onDone(true, steps.map(comboText).join(' then '), tries-left); return;
+    }
+    if(alts.some(a=>a.length>steps.length && steps.every((x,i)=>sameCombo(x,a[i])))){ status.textContent='Good — keep going…'; return; }
+    const pressed=steps.map(comboText).join(' then '); steps=[]; left--;
+    if(left>0){
+      box.classList.add('bad'); setTimeout(()=>box.classList.remove('bad'),500);
+      status.innerHTML=''; status.append(h('strong',{},`You pressed ${pressed} — not quite. `), hint?`Hint: ${hint} `:'', 'Try again.');
+      onMiss && onMiss();
+    } else { finished=true; onDone(false, pressed, tries-left); }
+  });
+  const skip=h('button',{type:'button',class:'btn small',onclick:()=>{ if(finished) return; finished=true; onDone(false,null,tries-left); }},'I don’t know');
+  const fallback=onFallback?h('button',{type:'button',class:'btn small',onclick:onFallback},'No keyboard? Show options'):null;
+  return h('div',{class:'capwrap'}, box, status, h('div',{class:'btn-row'},skip,fallback));
+}
+
+/* ---------- Small inline icons ---------- */
+const ICON={
+  wrench:'<svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M11 1.2a3.6 3.6 0 0 0-3.4 4.7L1.8 11.7a1.5 1.5 0 0 0 2.1 2.1l5.8-5.8a3.6 3.6 0 0 0 4.7-3.4l-2 2-2-.6-.6-2z"/></svg>',
+  monitor:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 14h6M8 11.5V14" stroke="currentColor" stroke-width="1.4"/></svg>',
+  camera:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4.5" width="9.5" height="8" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M11 7.5l3.5-2v7L11 10.5" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>',
+  edit:'<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.3"/><circle cx="3" cy="3" r="1.8" fill="currentColor"/><circle cx="13" cy="3" r="1.8" fill="currentColor"/><circle cx="3" cy="13" r="1.8" fill="currentColor"/><circle cx="13" cy="13" r="1.8" fill="currentColor"/></svg>',
+  cage:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13 8 3l6 10z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="3" r="1.6" fill="currentColor"/></svg>',
+  grip:'<svg viewBox="0 0 16 16" aria-hidden="true"><g fill="currentColor"><circle cx="5.5" cy="3.5" r="1.3"/><circle cx="10.5" cy="3.5" r="1.3"/><circle cx="5.5" cy="8" r="1.3"/><circle cx="10.5" cy="8" r="1.3"/><circle cx="5.5" cy="12.5" r="1.3"/><circle cx="10.5" cy="12.5" r="1.3"/></g></svg>',
+  down:'<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>'
+};
+const icon = n => { const s=h('span',{style:'display:inline-flex'}); s.innerHTML=ICON[n]; return s.firstChild; };
+
+/* =========================================================
+   DATA
+   ========================================================= */
+const GROUPS=[{id:'all',name:'All topics'},{id:'basics',name:'Weight basics'},{id:'paint',name:'Painting'},{id:'pose',name:'Posing and fixing'}];
+const CATS=[
+ {id:'weights',g:'basics',name:'How weights work',intro:'A weight is a number from 0 to 1 that says how much a bone moves a vertex. Weights live in vertex groups, and the Armature modifier uses them to bend the mesh.'},
+ {id:'setup',g:'basics',name:'Weight Paint set-up',intro:'Get into Weight Paint with the rig ready to pose, choose the right bone and set up the viewport so you can see what you are doing.'},
+ {id:'brushes',g:'paint',name:'Brushes',intro:'Draw, Subtract and Blur do most of the work. Radius, Strength and Weight control how much each stroke changes.'},
+ {id:'cleanup',g:'paint',name:'Cleaning up weights',intro:'The Weights menu fixes problems across the whole mesh at once: normalising, smoothing, cleaning and mirroring.'},
+ {id:'posing',g:'pose',name:'Testing with poses',intro:'Weights only show their problems when the rig bends. Pose a joint, paint it, clear the pose and test again.'},
+ {id:'precise',g:'pose',name:'Precise weights and fixes',intro:'Set exact values in Edit Mode, fix vertices that are left behind and deal with automatic weights that fail.'}
+];
+const CATMAP=Object.fromEntries(CATS.map(c=>[c.id,c]));
+const LEARN=[
+ {cat:'weights',name:'What a weight is',kind:'Concept',what:'Every vertex can belong to one or more vertex groups, each with a weight from 0 to 1. Weight Paint shows the active group as colours: blue is 0, green is about 0.5 and red is 1. A vertex at 1 in Forearm.L moves fully with the forearm.',when:'The middle of the forearm is red for Forearm.L and blue for UpperArm.L.',settings:[['0','No influence. Shown blue.'],['0.5','Half influence. Shown green.'],['1','Full influence. Shown red.']],keys:[],mistake:'Thinking a blue area has no weights at all.',fix:'Blue only means zero for the active group. Check the other groups too.'},
+ {cat:'weights',name:'Weights are shared',kind:'Concept',what:'When a vertex is in more than one group, Blender shares the movement by the ratio of the weights. 0.5 and 0.5 moves halfway between two bones, and so does 1 and 1. That is why weights are kept normalised, so each vertex adds up to 1 and the colours tell the truth.',when:'An elbow vertex with UpperArm.L 0.5 and Forearm.L 0.5 moves halfway between the bones.',settings:[['Normalised','The weights on a vertex add up to 1.'],['Ratio','Blender bends the mesh by the ratio of the weights, not the raw numbers.']],keys:[],mistake:'You paint Forearm.L to 1, but the vertex only moves halfway because UpperArm.L is also 1.',fix:'Use Auto Normalize while painting, or run Weights › Normalize All.'},
+ {cat:'weights',name:'The Armature modifier',kind:'Setting',what:'Parenting with weights adds an Armature modifier to the mesh. It reads the vertex groups and bends the mesh with the bones. Its settings decide how the weights are used.',when:'Check it in the Modifier properties if the mesh stops following the rig.',settings:[['Object','The armature that bends this mesh.'],['Vertex Groups','Use the vertex groups as weights. Leave it ticked.'],['Preserve Volume','Keeps joints from thinning when they bend or twist a lot.']],keys:[],mistake:'The Armature modifier sits below Subdivision Surface, so posing is slow.',fix:'Move the Armature modifier to the top of the stack.'},
+ {cat:'setup',name:'Entering Weight Paint with the rig',kind:'Technique',what:'In Object Mode, select the armature, then Shift-click the mesh so the mesh is active, and switch to Weight Paint. Now you can paint the mesh and pose the bones without changing mode.',when:'Bend the forearm, paint the elbow, then bend it again.',settings:[['Armature first','Selected first so its bones can be posed.'],['Mesh active','Clicked last so it is the object you paint.']],keys:[['Ctrl+Tab','Mode pie on the mesh: choose Weight Paint']],mistake:'Only the mesh is selected, so you cannot select or pose any bones.',fix:'Go back to Object Mode, select the armature, Shift-click the mesh and try again.'},
+ {cat:'setup',name:'Choosing the bone to paint',kind:'Technique',what:'The colours show the active vertex group. Make it active by selecting its bone, or by clicking the group in Object Data › Vertex Groups. From Blender 4.1, switch the header to Bone Selection, then Alt-click a bone.',when:'Alt-click the forearm bone to see and paint Forearm.L.',settings:[['Bone Selection','The bone icon in the header, next to vertex and face selection.'],['Vertex Groups list','Click a group name to make it active.']],keys:[['3','Bone Selection mode (Blender 4.1 and later)'],['Alt+Left click','Select a bone']],mistake:'You paint without checking the active group, so you change the wrong bone.',fix:'Read the active group name before every stroke.'},
+ {cat:'setup',name:'Seeing the weights clearly',kind:'Setting',what:'The Viewport Overlays menu has Weight Paint options. Zero Weights shows unweighted areas in black, and Weight Contours draws lines between weight values. In Edit Mode, the Vertex Group Weights overlay shows the colours while you model.',when:'Turn on Zero Weights › Active to find spots the bone does not reach.',settings:[['Zero Weights','None, Active or All. Shows zero weights in black.'],['Weight Contours','Lines that show how even a gradient is.'],['Wireframe','Shows the edges so you can see joint loops.']],keys:[['Alt+Z','X-Ray, to see the bones through the mesh']],mistake:'You cannot tell 0 from 0.02 because both look dark blue.',fix:'Turn on Zero Weights so true zeros show in black.'},
+ {cat:'brushes',name:'Draw, Add and Subtract',kind:'Technique',what:'Draw paints towards the Weight value. Add raises the weight and Subtract lowers it. Paint at Weight 1 to make an area follow a bone, and Subtract (or Draw at Weight 0) to take it away.',when:'Subtract the red patch that Hand.L left on the hip.',settings:[['Weight','The value Draw paints towards, from 0 to 1.'],['Blend','Mix, Add or Subtract. Brush presets with these names do the same job.']],keys:[['F','Brush radius'],['Shift+F','Brush strength']],mistake:'Drawing at Weight 1 everywhere leaves hard red edges.',fix:'Paint the core at 1, then Blur the edges.'},
+ {cat:'brushes',name:'Blur, Average and Smear',kind:'Technique',what:'Blur smooths the weights under the brush so a joint bends gradually. Average evens out an area, and Smear drags weights along the stroke. Blur is the one you will use most.',when:'Blur across the elbow so red fades through yellow and green to blue.',settings:[['Blur','Smooths sharp changes.'],['Average','Sets the area to its average weight.'],['Smear','Pushes weights in the stroke direction.']],keys:[],mistake:'Blurring the whole limb spreads weight into bones far away.',fix:'Blur only across the joint, a little at a time.'},
+ {cat:'brushes',name:'Brush settings for weights',kind:'Setting',what:'Radius and Strength work as in other paint modes. Two more settings matter for weights. Turn Front Faces Only off and use Projected falloff to paint through to the back of a thin limb. Symmetry › X paints both sides at once.',when:'Paint both sides of a thin arm in one stroke.',settings:[['Front Faces Only','Off paints faces that point away from you too.'],['Falloff Shape','Projected paints straight through the mesh.'],['Symmetry X','Mirrors strokes. Tick Vertex Groups to paint .L and .R together.']],keys:[['F','Brush radius'],['Shift+F','Brush strength']],mistake:'The back of the arm is still blue after you paint the front.',fix:'Turn off Front Faces Only and use Projected falloff, or orbit and paint the back.'},
+ {cat:'cleanup',name:'Auto Normalize and locking',kind:'Setting',what:'Auto Normalize (in the tool Options) keeps each vertex’s deforming weights adding up to 1 while you paint. Locking a group (the padlock in the Vertex Groups list) stops it changing, so painting one bone only takes weight from the unlocked bones.',when:'Lock Spine and Chest while you paint the shoulder.',settings:[['Auto Normalize','Keeps totals at 1 as you paint.'],['Lock','Protects a group from changes.']],keys:[],mistake:'With Auto Normalize off, you paint red but the vertex still follows another bone.',fix:'Turn on Auto Normalize before painting.'},
+ {cat:'cleanup',name:'Normalize All, Smooth and Clean',kind:'Technique',what:'The Weights menu works on the whole mesh. Normalize All makes every vertex add up to 1. Smooth blurs the active group. Clean removes tiny weights below a limit: they are hard to see but still pull the mesh.',when:'Run Clean with a limit of 0.01 after Blur has left faint weights everywhere.',settings:[['Normalize All','Totals become 1. Lock Active keeps the active group as it is.'],['Smooth','Factor and Iterations control how much.'],['Clean','Removes weights below the Limit.']],keys:[],mistake:'Faint weights from blurring make the toes move a little with the knee.',fix:'Use Weights › Clean, then check with Zero Weights.'},
+ {cat:'cleanup',name:'Mirroring and limiting',kind:'Technique',what:'Mirror Vertex Group copies weights from one side to the other using the .L and .R names. Limit Total keeps only the strongest few groups on each vertex, which game engines often need (usually 4).',when:'Finish the left arm, then mirror its weights to the right arm.',settings:[['Mirror Vertex Group','Vertex Groups menu (˅). Tick Mirror Weights, Flip Group Names and All Groups.'],['Limit Total','Keep only this many groups per vertex.']],keys:[],mistake:'Mirroring a mesh that is not symmetrical leaves gaps.',fix:'Mirror needs a symmetrical mesh. Try Topology Mirror, or paint with Symmetry X instead.'},
+ {cat:'posing',name:'Making test poses',kind:'Technique',what:'Pose each joint to its limits: bend the elbow fully, lift the arm above the head, crouch the legs. Weight problems only show when a joint bends a lot. Clear the pose afterwards.',when:'Raise the arm to 90° and then 160° to check the shoulder.',settings:[['Range of motion','Test the full bend, not a small one.'],['Clear','Alt+R and Alt+G return the rest pose.']],keys:[['R','Rotate the bone'],['Alt+R','Clear rotation'],['Ctrl+Z','Undo a stroke']],mistake:'Painting in the rest pose, where every joint looks fine.',fix:'Pose the joint first, then paint while it is bent.'},
+ {cat:'posing',name:'Problem joints',kind:'Concept',what:'Shoulders, hips, elbows, knees and the neck need the most work. Hinges such as elbows and knees need a smooth band of weight across the joint. Ball joints such as shoulders and hips share weight with the chest or pelvis.',when:'The shoulder shares weight between UpperArm.L, Shoulder.L and Chest.',settings:[['Hinge','A smooth band across the bend.'],['Ball joint','Weight shared between three bones.'],['Topology','About three edge loops at each joint help a lot.']],keys:[],mistake:'Expecting weights to fix a joint that has no edge loops.',fix:'Add joint loops in the mesh first (Ctrl+R in Edit Mode), then paint.'},
+ {cat:'posing',name:'Preserve Volume and Deform',kind:'Setting',what:'Preserve Volume, in the Armature modifier, uses different maths so twisted and strongly bent joints keep their thickness. Only bones with Deform ticked should get weights, so turn Deform off for control bones such as Hand_IK.L.',when:'Turn Deform off on IK and pole bones, then delete their vertex groups.',settings:[['Preserve Volume','Stops the “sweet wrapper” collapse on a twisted wrist.'],['Deform','Bone properties › Deform. Off for control bones.']],keys:[],mistake:'The IK control bone has its own vertex group, so it tugs the wrist.',fix:'Turn Deform off for the control and delete its vertex group.'},
+ {cat:'precise',name:'Assigning exact weights in Edit Mode',kind:'Technique',what:'In Edit Mode, select vertices, choose a group, set the Weight value and click Assign in Object Data › Vertex Groups. It is quick for parts that move as one solid piece, such as a helmet.',when:'Select the helmet and assign it to Head at weight 1.',settings:[['Assign','Adds the selected vertices at the Weight value.'],['Remove','Takes them out of the active group.'],['Vertex Weights','Sidebar › Item shows exact values for the active vertex.']],keys:[['Ctrl+G','Vertex Groups menu in Edit Mode'],['N','Sidebar: Item › Vertex Weights']],mistake:'Assign adds to the new group but leaves the old ones, so the vertex is still shared.',fix:'Remove the vertices from the other group, or run Normalize All with Lock Active.'},
+ {cat:'precise',name:'Vertices left behind',kind:'Concept',what:'A vertex with no weight in any deforming group does not move when you pose. It shows up as a spike or stretch pulling back to the rest pose.',when:'A fingertip stays still while the hand moves.',settings:[['Zero Weights › All','Shows unweighted vertices in black.'],['Ungrouped Verts','Edit Mode: Select › Select All by Trait › Ungrouped Verts.']],keys:[],mistake:'Separate parts, such as a ring or a strap, were never weighted.',fix:'Select them in Edit Mode and Assign them to the nearest bone.'},
+ {cat:'precise',name:'When automatic weights fail',kind:'Concept',what:'Sometimes Blender reports “Bone Heat Weighting: failed to find solution for one or more bones”. It usually means doubled vertices, overlapping or separate pieces of mesh, or a very small model.',when:'Fix the mesh, then parent with automatic weights again.',settings:[['Merge by Distance','Edit Mode: M › By Distance removes doubled vertices.'],['Loose parts','Weight eyes, teeth and hair separately.'],['Scale','Apply the scale. Very small models can fail.']],keys:[['M','Merge menu in Edit Mode']],mistake:'Trying again without changing the mesh.',fix:'Merge by Distance and check for overlapping pieces first.'}
+];
+LEARN.forEach((c,i)=>c.id=i);
+const LEARNN=Object.fromEntries(LEARN.map(c=>[c.name,c.id]));
+const SHORTS=[
+ ['Ctrl+Tab','Mode pie','Mesh: open the mode pie and choose Weight Paint.','setup'],
+ ['3','Bone Selection','Weight Paint (4.1 and later): switch to selecting bones.','setup'],
+ ['Alt+Left click','Select a bone','Weight Paint: choose a bone and its group.','setup'],
+ ['Alt+Z','X-Ray','See the bones through the mesh.','setup'],
+ ['F','Brush radius','Change the size of the brush.','brushes'],
+ ['Shift+F','Brush strength','Change how strongly each stroke paints.','brushes'],
+ ['Ctrl+Z','Undo','Undo the last stroke.','brushes'],
+ ['R','Rotate bone','Bend a joint to test the weights.','posing'],
+ ['Alt+R','Clear rotation','Return the bones to the rest pose.','posing'],
+ ['Ctrl+G','Vertex Groups menu','Edit Mode: assign or remove selected vertices.','precise'],
+ ['N','Sidebar','Item › Vertex Weights shows exact values.','precise'],
+ ['M','Merge','Edit Mode: By Distance removes doubled vertices.','precise']
+].map((r,i)=>({id:'S'+i,keys:r[0],name:r[1],desc:r[2],cat:r[3]}));
+const RECAP=[['Ctrl+Tab','Pose Mode / mode pie','Toggles Pose Mode on an armature.'],['Ctrl+P','Parent','With Automatic Weights skins the mesh.'],['R','Rotate','Rotates bones in Pose Mode.'],['Alt+R','Clear rotation','Back to the rest pose.'],['F','Brush radius','From the Weight Paint card in Part 5.'],['Shift+F','Brush strength','How hard the brush paints.'],['Alt+Z','X-Ray','See the bones through the mesh.'],['Tab','Edit Mode','Select vertices to assign weights.']];
+const WARM=[
+ {q:'Toggle Pose Mode on a selected armature.',opts:['Ctrl+Tab','Tab','Shift+Tab'],a:0,explain:'Ctrl+Tab toggles Pose Mode on an armature.',notes:['','Tab toggles Edit Mode.','Shift+Tab toggles snapping.']},
+ {q:'Open the Parent menu to skin the mesh.',opts:['Ctrl+P','Alt+P','Shift+P'],a:0,explain:'Ctrl+P opens the Parent menu.',notes:['','Alt+P clears the parent.','Shift+P is not the Parent menu.']},
+ {q:'Clear the rotation of posed bones.',opts:['Alt+R','Ctrl+R','Shift+R'],a:0,explain:'Alt+R clears rotation.',notes:['','Ctrl+R is Loop Cut in Edit Mode.','Shift+R repeats the last action.']},
+ {q:'Change the brush radius in Weight Paint.',opts:['F','Shift+F','R'],a:0,explain:'F changes the brush radius.',notes:['','Shift+F changes the strength.','R rotates.']},
+ {q:'See the bones through the mesh.',opts:['Alt+Z','Z','Shift+Z'],a:0,explain:'Alt+Z toggles X-Ray.',notes:['','Z opens the shading pie.','Shift+Z is not X-Ray.']},
+ {q:'Rename the active bone.',opts:['F2','F3','F12'],a:0,explain:'F2 renames.',notes:['','F3 opens the search menu.','F12 renders.']}
+];
+const CHECKS=[
+ {cat:'weights',card:'What a weight is',q:'A vertex is red in Forearm.L and blue in UpperArm.L. What happens when the forearm rotates?',opts:['It moves fully with the forearm','It stays still','It moves halfway'],a:0,explain:'Red is 1 and blue is 0, so the forearm moves it fully.',notes:['','It would stay still only with no weights at all.','Halfway needs equal weights in both groups.']},
+ {cat:'setup',card:'Entering Weight Paint with the rig',q:'You switch the mesh to Weight Paint but cannot select any bones. Why?',opts:['The armature was not selected before the mesh','The brush radius is too small','Auto Normalize is on'],a:0,explain:'Select the armature first, then Shift-click the mesh.',notes:['','Radius does not affect bone selection.','Auto Normalize does not affect bone selection.']},
+ {cat:'brushes',card:'Blur, Average and Smear',q:'The elbow has a hard line between red and blue. Which brush helps most?',opts:['Blur','Draw at weight 1','Smear'],a:0,explain:'Blur smooths the sharp change into a gradient.',notes:['','Drawing at 1 makes the edge harder.','Smear moves the line rather than softening it.']},
+ {cat:'cleanup',card:'Normalize All, Smooth and Clean',q:'What does Normalize All do?',opts:['Makes every vertex’s weights add up to 1','Sets every weight to 1','Deletes empty groups'],a:0,explain:'Normalize All scales each vertex’s weights so they total 1.',notes:['','That would make everything red.','Clean removes tiny weights; nothing here deletes groups.']},
+ {cat:'posing',card:'Making test poses',q:'Why pose a joint before painting it?',opts:['Weight problems only show when the joint bends','Painting is faster in Pose Mode','Posed bones have no weights'],a:0,explain:'A straight joint hides creases and pinches.',notes:['','Speed is the same.','Posing does not remove weights.']},
+ {cat:'precise',card:'Vertices left behind',q:'A fingertip stays behind when the hand moves. What is the likely cause?',opts:['It has no weight in any deforming group','Preserve Volume is on','The bone is too long'],a:0,explain:'Unweighted vertices do not move with any bone.',notes:['','Preserve Volume never leaves vertices behind.','Bone length does not leave vertices behind.']}
+];
+const QUIZ=[
+ {q:'You paint the shoulder red for UpperArm.L, but it still only moves halfway.',opts:['Turn on Auto Normalize or run Normalize All','Paint with a bigger brush','Add another bone','Turn off Preserve Volume'],a:0,card:'Weights are shared',hint:'Another group still has weight on those vertices.',explain:'The other group is still high, so the ratio is about half. Normalising fixes the totals.',notes:['','Size does not change the ratio.','More bones make it worse.','Preserve Volume does not change weights.']},
+ {q:'The wrist collapses like a twisted sweet wrapper when the hand rotates.',opts:['Turn on Preserve Volume in the Armature modifier','Blur the whole arm','Delete the forearm bone','Scale the hand up'],a:0,card:'Preserve Volume and Deform',hint:'Twisting loses volume with normal skinning.',explain:'Preserve Volume keeps the thickness when a joint twists.',notes:['','Blurring the whole arm spreads weights too far.','The arm needs that bone.','Scaling does not fix twisting.']},
+ {q:'The hip moves when you lift the left hand.',opts:['Select Hand.L and Subtract its weight from the hip','Run Normalize All','Clear the pose','Add a Limit Rotation constraint'],a:0,card:'Draw, Add and Subtract',hint:'A bone has weight where it should not.',explain:'Hand.L has stray weight on the hip. Subtract it.',notes:['','Normalising keeps the stray weight.','Clearing the pose hides the problem.','Constraints do not change weights.']},
+ {q:'The left arm is finished and you need the same weights on the right.',opts:['Mirror Vertex Group with Flip Group Names','Paint the right side by eye','Duplicate the mesh','Rename the groups by hand'],a:0,card:'Mirroring and limiting',hint:'Let Blender copy across using the .L and .R names.',explain:'Mirror Vertex Group copies and flips the weights to the .R groups.',notes:['','That works but is slow and uneven.','A second mesh is not needed.','Renaming does not copy weights.']},
+ {q:'Parenting with automatic weights fails with a Bone Heat error.',opts:['Merge by Distance and fix overlapping pieces, then try again','Delete half the bones','Turn on X-Ray','Use a bigger brush'],a:0,card:'When automatic weights fail',hint:'The problem is in the mesh, not the bones.',explain:'Doubled vertices and overlapping parts stop Bone Heat. Clean the mesh first.',notes:['','The bones are not the cause.','X-Ray only changes the view.','Brushes are not used for parenting.']},
+ {q:'A metal helmet bends when the head turns, but it should move as one piece.',opts:['Assign the helmet to Head at weight 1 in Edit Mode','Blur the helmet','Paint it at 0.5','Turn on Preserve Volume'],a:0,card:'Assigning exact weights in Edit Mode',hint:'Rigid parts need one bone at full weight.',explain:'Assigning the helmet at 1 to Head makes it move as one solid piece.',notes:['','Blur adds more bending.','0.5 makes it lag behind.','Preserve Volume does not make it rigid.']}
+];
+const MISTAKES=[
+ {t:'Painting in the rest pose',why:'Joints look fine when straight, so the problems are hidden.',fix:'Pose the joint to its limit, then paint while it is bent.'},
+ {t:'Painting the wrong group',why:'The colours only show the active group, so it is easy to paint the wrong bone.',fix:'Check the active group name before each stroke and select bones with Alt-click.'},
+ {t:'Turning Auto Normalize off',why:'Totals stop adding up to 1, so a red area can still follow another bone.',fix:'Keep Auto Normalize on, and run Normalize All if the totals have drifted.'},
+ {t:'Blurring too much',why:'Weight spreads into distant bones, so far-away parts move together.',fix:'Blur only across the joint, then use Clean to remove faint weights.'},
+ {t:'Control bones with Deform on',why:'IK and pole bones get vertex groups and tug the mesh.',fix:'Untick Deform on control bones and delete their vertex groups.'}
+];
+const MQ=[
+ {q:'Faint weights make the toes move slightly with the knee.',opts:['Weights › Clean with a small limit','Paint the toes red','Delete the knee bone','Turn off Auto Normalize'],a:0,explain:'Clean removes tiny stray weights.',notes:['','Red for the knee makes it worse.','The leg needs the knee.','That makes totals unreliable.']},
+ {q:'The back of a thin arm stays blue after you paint the front.',opts:['Turn off Front Faces Only and use Projected falloff','Set Strength to 1','Mirror the group','Run Normalize All'],a:0,explain:'These settings paint straight through the limb.',notes:['','Strength does not reach the back faces.','Mirror copies left to right, not front to back.','Normalising does not add weight.']},
+ {q:'The elbow creases sharply when bent.',opts:['Blur across the joint while it is bent','Assign the elbow at 1','Turn off the Armature modifier','Delete an edge loop'],a:0,explain:'A smooth band of weight lets the joint bend gently.',notes:['','That makes the change even sharper.','The mesh would stop following the rig.','Fewer loops make creases worse.']},
+ {q:'The IK control bone pulls part of the wrist.',opts:['Untick Deform on the control bone and delete its group','Blur the wrist','Make the control bone smaller','Clear the pose'],a:0,explain:'Control bones should not deform the mesh.',notes:['','The control still pulls the mesh.','Size is not the problem.','The problem returns when you pose.']},
+ {q:'You cannot tell the difference between 0 and 0.02 on the mesh.',opts:['Turn on the Zero Weights overlay','Use Wireframe','Increase the brush radius','Use Smear'],a:0,explain:'Zero Weights shows true zeros in black.',notes:['','Wireframe shows edges, not weights.','Radius does not change the display.','Smear changes weights, not the display.']}
+];
+const PROJECT=[
+ {t:'Open your rig and find the problems',d:'Open human_rig.blend from Part 5 and save it as human_weights.blend. Pose an arm and a leg strongly and note every place that creases, pinches or moves when it should not.',k:['Ctrl+O','Ctrl+Shift+S','Ctrl+Tab','R']},
+ {t:'Enter Weight Paint with the rig',d:'In Object Mode, select the armature, Shift-click the body and switch to Weight Paint. Turn on Viewport Overlays › Zero Weights › Active.',k:['Ctrl+Tab','Alt+Z']},
+ {t:'Check the deform bones',d:'Make sure IK, pole and other control bones have Deform turned off, and delete any vertex groups they have.',k:[]},
+ {t:'Fix the elbows and knees',d:'Bend each elbow and knee to about 120°. Choose the bone, paint or Subtract obvious mistakes, then Blur across the joint until it bends smoothly.',k:['3','Alt+Left click','F','Shift+F']},
+ {t:'Fix the shoulders and hips',d:'Lift the arm above the head and bend the leg forward. Share weight with the chest and pelvis so the joint does not collapse.',k:['R','Alt+R','Ctrl+Z']},
+ {t:'Clean and normalise',d:'Run Weights › Clean with a limit of 0.01, then Normalize All. Switch Zero Weights to All and look for black spots.'},
+ {t:'Mirror to the other side',d:'If you painted the left side only, use Mirror Vertex Group with Mirror Weights, Flip Group Names and All Groups ticked.'},
+ {t:'Pose and render',d:'Make three strong poses (crouch, reach and wave), check every joint, then render each one.',k:['R','G','F12']}
+].map(p=>({k:[],...p}));
+const EXT=['Turn on Preserve Volume and compare the wrists when you twist the hands.','Assign a rigid part, such as a helmet or a belt buckle, to one bone at weight 1 in Edit Mode.','Use Limit Total set to 4 and then Normalize All, as you would for a game engine.','Add a twist bone in the forearm and give it a smooth band of weight.'];
+
+/* ---------- Arm model (shared by the lab and the pictures) ---------- */
+const NC=25, X0=40, DXC=10, EXX=160, EYY=165;
+const TH=i=>{ const x=X0+i*DXC; return x<=EXX?18-(x-X0)*0.025:15-(x-EXX)*0.03; };
+function wRamp(w){
+  w=Math.max(0,Math.min(1,w));
+  const S=[[0,0,0,255],[.25,0,255,255],[.5,0,255,0],[.75,255,255,0],[1,255,0,0]];
+  for(let i=1;i<S.length;i++) if(w<=S[i][0]){ const a=S[i-1],b=S[i],t=(w-a[0])/(b[0]-a[0]); return 'rgb('+[1,2,3].map(k=>Math.round((a[k]+(b[k]-a[k])*t)*.86)).join(',')+')'; }
+  return 'rgb(219,0,0)';
+}
+function shares(F,U){ return F.map((f,i)=>{ const s=f+U[i]; return s>1e-4?f/s:null; }); }
+// Weight sets: sharp (automatic weights), smooth, stray (leak at the wrist), zero (unweighted tip)
+function WSET(kind){
+  const F=[],U=[];
+  for(let i=0;i<NC;i++){
+    let f;
+    if(kind==='sharp'||kind==='stray') f=i<12?0:i===12?.5:1;
+    else { const t=Math.max(0,Math.min(1,(i-8)/8)); f=t*t*(3-2*t); }
+    if(kind==='stray'&&(i===20||i===21)) f=.4;
+    F.push(f); U.push(1-f);
+    if(kind==='zero'&&i>=23){ F[i]=0; U[i]=0; }
+  }
+  return {F,U};
+}
+function armMarkup(o){
+  const th=-(o.bend||0)*Math.PI/180, sh=shares(o.F,o.U);
+  const rot=(x,y,a)=>{ const dx=x-EXX,dy=y-EYY,c=Math.cos(a),s=Math.sin(a); return [EXX+dx*c-dy*s,EYY+dx*s+dy*c]; };
+  const def=(x,y,f)=>{ if(f==null) return [x,y]; if(o.pv) return rot(x,y,th*f); const r=rot(x,y,th); return [x+(r[0]-x)*f,y+(r[1]-y)*f]; };
+  const top=[],bot=[],mid=[];
+  for(let i=0;i<NC;i++){ const x=X0+i*DXC,t=TH(i); top.push(def(x,EYY-t,sh[i])); bot.push(def(x,EYY+t,sh[i])); mid.push(def(x,EYY,sh[i])); }
+  const act=o.grp==='U'?o.U:o.F, P=a=>a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+  let s='';
+  for(let i=0;i<NC-1;i++){
+    const fill=o.view==='weight'?wRamp((act[i]+act[i+1])/2):(i%2?'#9c9c9c':'#a9a9a9');
+    s+=`<polygon points="${P([top[i],top[i+1],bot[i+1],bot[i]])}" fill="${fill}" stroke="#1b1b1b" stroke-width=".7" stroke-linejoin="round"/>`;
+  }
+  const E=[EXX,EYY], Sh=[X0+4,EYY], Hd=rot(X0+(NC-1)*DXC-4,EYY,th);
+  const bc=g=>o.view==='weight'&&o.grp===g?'#6f9be3':'#ececec';
+  const bone=(a,b,c)=>`<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="${c}" stroke-width="4" stroke-linecap="round" opacity=".9"/>`;
+  s+=bone(Sh,E,bc('U'))+bone(E,Hd,bc('F'));
+  [Sh,E,Hd].forEach(p=>{ s+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="#74d494" stroke="#111"/>`; });
+  if(o.cursor!=null&&mid[o.cursor]){ const c=mid[o.cursor]; s+=`<circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="${(o.brushR||0)*DXC+7}" fill="none" stroke="#fff" stroke-width="1.6" stroke-dasharray="4 3"/><circle cx="${c[0].toFixed(1)}" cy="${c[1].toFixed(1)}" r="1.8" fill="#fff"/>`; }
+  return {s,top,bot,mid};
+}
+function ARM(o,label){ const dy=o.dy!=null?o.dy:(o.bend?0:-52); return `<svg viewBox="0 0 300 225" role="img" aria-label="${(label||'An arm mesh with two bones').replace(/"/g,'')}"><g transform="translate(0 ${dy})">${armMarkup(o).s}</g></svg>`; }
+const AW=(kind,o,label)=>ARM(Object.assign({},WSET(kind),{bend:0,view:'solid',grp:'F'},o),label);
+function RAMPFIG(){
+  let s=''; for(let i=0;i<40;i++) s+=`<rect x="${10+i*7}" y="18" width="7.6" height="26" fill="${wRamp(i/39)}"/>`;
+  [[0,'0'],[.25,'0.25'],[.5,'0.5'],[.75,'0.75'],[1,'1']].forEach(([v,t])=>{ const x=10+v*280; s+=`<line x1="${x}" y1="44" x2="${x}" y2="50" stroke="#bbb"/><text x="${x}" y="64" font-size="12" text-anchor="middle" fill="#ececec">${t}</text>`; });
+  s+=`<text x="10" y="12" font-size="11" fill="#b8b8b8">No influence</text><text x="290" y="12" font-size="11" text-anchor="end" fill="#b8b8b8">Full influence</text>`;
+  return `<svg viewBox="0 0 300 72" role="img" aria-label="Weight colours from blue at 0, through cyan, green and yellow, to red at 1" style="max-width:420px;width:100%">${s}</svg>`;
+}
+
+/* ---------- simple figure helpers ---------- */
+function svgEl(str){ const d=h('div'); d.innerHTML=str; return d.firstChild; }
+function dg(svg,cap,cls){ return h('figure',{class:'dg'+(cls?' '+cls:'')}, h('div',{class:'dgbox'}, svgEl(svg)), cap?h('figcaption',{},cap):null); }
+function dgArrow(text,keys){ return h('div',{class:'dg-arrow'}, h('span',{class:'ar','aria-hidden':'true'},'→'), keys?renderKeys(keys):null, text?h('span',{},text):null); }
+function dgRow(...items){ return h('div',{class:'dgrow'},items); }
+const dgNote=t=>h('p',{},t);
+const D={
+ weights:()=>h('div',{},dgRow(dg(AW('smooth',{view:'weight',grp:'U'},'The UpperArm.L group: red near the shoulder fading to blue'),'UpperArm.L group'),dg(AW('smooth',{view:'weight',grp:'F'},'The Forearm.L group: blue near the shoulder fading to red'),'Forearm.L group'),dg(AW('smooth',{bend:80},'The arm bent smoothly at the elbow'),'Together: a smooth bend','good')),dgNote('Each bone has its own group. Where one fades out, the other fades in, so the elbow vertices are shared.')),
+ setup:()=>h('div',{},svgEl(RAMPFIG()),dgNote('Weight colours: blue is 0, green is 0.5 and red is 1. Zero Weights shows true zeros in black.')),
+ brushes:()=>h('div',{},dgRow(dg(AW('sharp',{view:'weight'},'Sharp weights: red meets blue at the elbow'),'Sharp: red meets blue','bad'),dgArrow('Blur'),dg(AW('smooth',{view:'weight'},'Smooth weights: a gradient across the elbow'),'Blurred: a smooth gradient','good')),dgNote('Paint the core of each bone at 1, then Blur across the joint.')),
+ cleanup:()=>h('div',{},dgRow(dg(AW('stray',{view:'weight',grp:'U'},'A green patch of UpperArm.L weight near the wrist'),'Stray weight at the wrist','bad'),dgArrow('Subtract, then Normalize All'),dg(AW('sharp',{view:'weight',grp:'U'},'UpperArm.L with no weight past the elbow'),'Clean weights','good')),dgNote('Remove mistakes first, then use the Weights menu to tidy the whole mesh.')),
+ posing:()=>h('div',{},dgRow(dg(AW('sharp',{bend:115},'Sharp weights crease the bent elbow'),'Sharp weights crease','bad'),dg(AW('smooth',{bend:115},'Smooth weights bend the elbow in a curve'),'Smooth weights curve','good'),dg(AW('smooth',{bend:115,pv:true},'Smooth weights with Preserve Volume keep the elbow thick'),'+ Preserve Volume','good')),dgNote('Always judge weights with the joint bent.')),
+ precise:()=>h('div',{},dgRow(dg(AW('zero',{bend:80},'The unweighted tip of the hand stays behind'),'Unweighted tip left behind','bad'),dgArrow('Assign at 1'),dg(AW('smooth',{bend:80},'Every vertex follows the bones'),'Every vertex weighted','good')),dgNote('Every vertex needs weight in at least one deforming group.'))
+};
+const CAT_DG=Object.fromEntries(CATS.map(c=>[c.id,c.id]));
+// text scene card
+function SCN(lines,r,label){
+  const t=lines.map((l,i)=>`<text x="120" y="${34+i*20}" text-anchor="middle" font-size="13" fill="#ececec">${l.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</text>`).join('');
+  return `<svg viewBox="0 0 240 130" role="img" aria-label="${(label||lines.join(' ')).replace(/"/g,'')}"><rect x="3" y="3" width="234" height="124" rx="10" fill="#2a2a2a" stroke="${r?'#e8913a':'#555'}" stroke-width="${r?3:1.5}"/>${t}</svg>`;
+}
+
+const LAB_GOALS=[
+ {id:'g1',t:'Look at the weights',d:'Switch to Weight view, make Forearm.L the active group and bend the elbow past 60°. Spot the green patch near the wrist.',test:l=>l.view==='weight'&&l.grp==='F'&&l.bend>=60},
+ {id:'g2',t:'Fix the stray weight',d:'Paint the wrist so it follows the forearm completely: Draw at weight 1 on Forearm.L, or Subtract on UpperArm.L.',test:()=>labShares().slice(17).every(v=>v>=.95)},
+ {id:'g3',t:'Smooth the elbow',d:'With the elbow bent 90° or more, use Blur or Smooth until there are no hard steps, while the shoulder stays blue and the hand stays red.',test:l=>{ const s=labShares(); return l.bend>=90&&maxJump(s)<=.2&&s.slice(0,5).every(v=>v<=.05)&&s.slice(20).every(v=>v>=.9); }},
+ {id:'g4',t:'Preserve the volume',d:'Bend the elbow past 120°, then switch on Preserve Volume and watch the elbow keep its thickness.',test:l=>l.pv&&l.bend>=120},
+ {id:'g5',t:'Balance the totals',d:'Untick Auto Normalize and paint UpperArm.L onto the forearm so the totals go above 1. See how the mesh follows the ratio, then fix it with Normalize All.',test:l=>l.normFixed}
+];
+const ORDER=[
+ {t:'Entering Weight Paint with a rig',d:'Put the steps for painting with a posable rig in the right order.',items:['Switch to Weight Paint','Select the armature','Alt-click a bone to choose its group','Shift-click the mesh'],correct:[['Select the armature','Shift-click the mesh','Switch to Weight Paint','Alt-click a bone to choose its group']],why:'The armature is selected first and the mesh last so it is active. Then switch mode and pick the bone.'},
+ {t:'Fixing a joint',d:'Put the steps for fixing one joint in the right order.',items:['Blur across the joint','Bend the joint to a test pose','Clear the pose and test again','Choose the bone’s group','Draw or Subtract the obvious mistakes'],correct:[['Bend the joint to a test pose','Choose the bone’s group','Draw or Subtract the obvious mistakes','Blur across the joint','Clear the pose and test again'],['Choose the bone’s group','Bend the joint to a test pose','Draw or Subtract the obvious mistakes','Blur across the joint','Clear the pose and test again']],why:'Pose the joint and choose the group (either order), fix the big mistakes, smooth the joint, then clear the pose and test again.'},
+ {t:'Cleaning up for export',d:'Put the clean-up steps in the right order.',items:['Normalize All','Save a copy','Clean tiny weights','Limit Total to 4'],correct:[['Save a copy','Clean tiny weights','Limit Total to 4','Normalize All'],['Save a copy','Limit Total to 4','Clean tiny weights','Normalize All']],why:'Save first. Clean and Limit Total (either order) can leave totals below 1, so Normalize All comes last.'}
+];
+const TOPO_OPTS=['Stray weights','Unweighted vertices','Weights too sharp','Control bone deforms','Wrong group painted','No problem'];
+const TOPO=[
+ {q:'When the forearm bends, part of the wrist lags behind with the upper arm. What is the problem?',figs:r=>[[AW('stray',{bend:75,view:'weight',grp:'U'},'UpperArm.L weights shown on the bent arm, with a green patch near the wrist'),r?'Upper arm weight at the wrist':'UpperArm.L group']],a:0,card:'Draw, Add and Subtract',explain:'UpperArm.L has stray weight near the wrist. Subtract it, or Draw Forearm.L at 1 there.'},
+ {q:'Bend the forearm and the end of the hand stretches back to where it started. What is the problem?',figs:r=>[[AW('zero',{bend:85},'The arm bent, with the tip stretched back'),r?'The tip has no weights':'']],a:1,card:'Vertices left behind',explain:'The tip vertices are in no deforming group, so they stay in the rest pose. Assign them to Forearm.L.'},
+ {q:'The elbow folds into a hard crease when it bends. What is the problem?',figs:r=>[[AW('sharp',{bend:110},'The arm bent with a hard crease at the elbow'),r?'Red meets blue at the joint':'']],a:2,card:'Blur, Average and Smear',explain:'The weights jump straight from 0 to 1. Blur across the joint while it is bent.'},
+ {q:'Moving the Hand_IK.L control drags part of the wrist mesh with it. What is the problem?',figs:r=>[[SCN(['Hand_IK.L has a','vertex group and','tugs the wrist'],r),r?'Deform is ticked on a control':'']],a:3,card:'Preserve Volume and Deform',explain:'Control bones should have Deform turned off and no vertex group.'},
+ {q:'You painted the elbow red, but it still pinches. The Vertex Groups list shows Hand.L as active. What is the problem?',figs:r=>[[SCN(['Painted red on the','elbow, but Hand.L','was the active group'],r),r?'Hand.L was painted':'']],a:4,card:'Choosing the bone to paint',explain:'The paint went into Hand.L. Undo, choose Forearm.L and paint again.'},
+ {q:'The elbow bends in a soft, even curve and nothing else moves. What is the problem?',figs:r=>[[AW('smooth',{bend:95},'The arm bent in a smooth curve'),r?'Clean weights':'']],a:5,card:'Making test poses',explain:'Nothing! The weights fade smoothly across the joint and nothing else is affected.'}
+];
+const WHICH_OPTS=['Blur brush','Subtract brush','Preserve Volume','Mirror Vertex Group','Clean','Normalize All'];
+const WHICH=[
+ {b:()=>AW('sharp',{view:'weight'},'Forearm.L weights jump from blue to red at the elbow'),a:()=>AW('smooth',{view:'weight'},'Forearm.L weights fade smoothly across the elbow'),ans:'Blur brush',card:'Blur, Average and Smear',hint:'The hard edge became a gradient.',explain:'The Blur brush smoothed the sharp change at the joint.'},
+ {b:()=>AW('stray',{view:'weight',grp:'U'},'UpperArm.L has a green patch at the wrist'),a:()=>AW('sharp',{view:'weight',grp:'U'},'UpperArm.L has no weight at the wrist'),ans:'Subtract brush',card:'Draw, Add and Subtract',hint:'Weight was taken away from one small area.',explain:'The Subtract brush removed the stray weight at the wrist.'},
+ {b:()=>AW('smooth',{bend:140},'A strongly bent elbow that has collapsed thin'),a:()=>AW('smooth',{bend:140,pv:true},'The same bend, but the elbow keeps its thickness'),ans:'Preserve Volume',card:'Preserve Volume and Deform',hint:'The weights did not change, but the joint kept its thickness.',explain:'Preserve Volume in the Armature modifier stopped the elbow collapsing.'},
+ {b:()=>SCN(['Left arm weighted,','right arm all blue']),a:()=>SCN(['Both arms weighted,','.L and .R groups']),ans:'Mirror Vertex Group',card:'Mirroring and limiting',hint:'Weights were copied from one side to the other.',explain:'Mirror Vertex Group copied the weights and flipped the group names.'},
+ {b:()=>SCN(['Thousands of tiny','0.001 weights','all over the body']),a:()=>SCN(['Tiny weights removed;','real weights kept']),ans:'Clean',card:'Normalize All, Smooth and Clean',hint:'Only the very small weights disappeared.',explain:'Weights › Clean removed every weight below the limit.'},
+ {b:()=>SCN(['Vertex totals:','1.6, 0.4 and 2.0']),a:()=>SCN(['Every vertex','adds up to 1.0']),ans:'Normalize All',card:'Weights are shared',hint:'Look at the totals.',explain:'Normalize All made every vertex’s weights add up to 1.'}
+];
+const FINAL_MC=[
+ {q:'How does Blender share a vertex between two groups?',opts:['By the ratio of the weights','By the larger weight only','By the group listed first','By the bone length'],hint:'0.5 and 0.5 behaves like 1 and 1.',explain:'The mesh moves by the ratio of the weights.',card:'Weights are shared'},
+ {q:'What colour is a weight of 0.5?',opts:['Green','Red','Blue','Black'],hint:'Halfway between blue and red.',explain:'0.5 is shown green.',card:'What a weight is'},
+ {q:'Which overlay shows zero weights in black?',opts:['Zero Weights','Weight Contours','Wireframe','Face Orientation'],hint:'Its name says what it shows.',explain:'Zero Weights shows unweighted areas in black.',card:'Seeing the weights clearly'},
+ {q:'Which brush smooths a sharp change in weight?',opts:['Blur','Draw','Add','Smear'],hint:'Think soft edges.',explain:'Blur smooths sharp changes.',card:'Blur, Average and Smear'},
+ {q:'What does Weights › Clean do?',opts:['Removes weights below a limit','Makes the totals 1','Mirrors the groups','Deletes bones'],hint:'Tiny weights.',explain:'Clean removes weights below the limit.',card:'Normalize All, Smooth and Clean'},
+ {q:'Which setting stops a twisted wrist collapsing?',opts:['Preserve Volume','Auto Normalize','Front Faces Only','X-Ray'],hint:'It is in the Armature modifier.',explain:'Preserve Volume keeps the thickness of twisted joints.',card:'Preserve Volume and Deform'},
+ {q:'Which bones should have Deform turned off?',opts:['IK, pole and other control bones','The spine bones','The forearm bones','Every arm bone'],hint:'Bones that animators grab.',explain:'Control bones should not move the mesh directly.',card:'Preserve Volume and Deform'},
+ {q:'Why bend a joint before painting it?',opts:['Problems only show when it bends','Painting is locked in the rest pose','Weights reset when you pose','It turns on Auto Normalize'],hint:'Straight joints look fine.',explain:'Creases and pinches only appear in a bent joint.',card:'Making test poses'}
+];
+const FINAL_PRESS=[
+ {q:'Change the brush radius.',keys:'F',opts:['F','Shift+F','Ctrl+F','R'],hint:'One letter.',explain:'F changes the brush radius.',card:'Draw, Add and Subtract'},
+ {q:'Change the brush strength.',keys:'Shift+F',opts:['Shift+F','F','Alt+F','Shift+S'],hint:'Shift with the radius key.',explain:'Shift+F changes the strength.',card:'Brush settings for weights'},
+ {q:'Open the Vertex Groups menu in Edit Mode.',keys:'Ctrl+G',opts:['Ctrl+G','Ctrl+P','Shift+G','G'],hint:'Control with G for groups.',explain:'Ctrl+G opens the Vertex Groups menu.',card:'Assigning exact weights in Edit Mode'},
+ {q:'Open the sidebar to see Vertex Weights.',keys:'N',opts:['N','T','F9','Ctrl+N'],hint:'The same key opens the sidebar everywhere.',explain:'N toggles the sidebar.',card:'Assigning exact weights in Edit Mode'},
+ {q:'Clear the rotation of a test pose.',keys:'Alt+R',opts:['Alt+R','Alt+G','Ctrl+R','Shift+R'],hint:'Alt with the rotate key.',explain:'Alt+R clears rotation.',card:'Making test poses'},
+ {q:'Open the Merge menu in Edit Mode.',keys:'M',opts:['M','Ctrl+M','Alt+M','J'],hint:'M for merge.',explain:'M opens the Merge menu, with By Distance.',card:'When automatic weights fail'}
+];
+
+
+/* ---------- Review deck cards ---------- */
+const DECK = [
+  ...LEARN.map(c=>({id:'L'+c.id,cat:c.cat,front:c.name,ask:c.kind==='Shortcut'?'What does this do, and when would you use it?':'What does it do, and when would you use it?',back:c.what,eg:c.when,keys:c.keys[0]?c.keys[0][0]:null})),
+  ...SHORTS.map(s=>({id:s.id,cat:s.cat,front:s.name,ask:'What is the shortcut?',back:s.desc,keys:s.keys,press:true}))
+];
+const DECKMAP=Object.fromEntries(DECK.map(d=>[d.id,d]));
+const cardId = name => name==null ? null : (LEARNN[name]!=null ? 'L'+LEARNN[name] : (SHORTS.find(s=>s.name===name)||{}).id||null);
+
+/* =========================================================
+   SHARED WIDGETS
+   ========================================================= */
+// Generic multiple-choice block. onCorrect receives the number of wrong tries first.
+function mcBlock(c){
+  const fb=h('div',{class:'fb','aria-live':'polite'});
+  const opts=h('div',{class:'opts'+(c.kind==='text'?' text-opts':'')});
+  const order=c.order||shuffle(c.opts.map((_,i)=>i));
+  let tries=0;
+  order.forEach(i=>{
+    const b=h('button',{type:'button',class:'opt'}, h('span',{class:'lbl'}, c.kind==='text'?c.opts[i]:renderKeys(c.opts[i])), h('span',{class:'mark','aria-hidden':'true'}));
+    if(c.done){ b.disabled=true; if(i===c.a) b.classList.add('correct'); }
+    b.addEventListener('click',()=>{
+      if(i===c.a){
+        b.classList.add('correct'); $$('.opt',opts).forEach(x=>x.disabled=true);
+        feedback(fb,'ok',tries===0?'Correct!':'Correct — got there!',c.explain); c.onCorrect && c.onCorrect(tries);
+      } else {
+        tries++; b.classList.add('wrong'); b.disabled=true;
+        feedback(fb,'hint','Not quite — try again.',c.notes[i]); c.onWrong && c.onWrong(i);
+      }
+    });
+    opts.append(b);
+  });
+  if(c.done) feedback(fb,'ok',c.doneTitle||'Correct!',c.explain);
+  const qid=nid('q');
+  return h('div',{class:'kc',role:'group','aria-labelledby':qid}, c.label?h('p',{class:'kc-label'},c.label):null, h('p',{class:'kc-q',id:qid},c.q), opts, fb);
+}
+function addToDeck(id){ if(!id || !DECKMAP[id]) return; P.deck[id]={b:1,due:0}; save(); if(!rv || rv.done) renderReview(); }
+function deckButton(id){
+  const b=h('button',{type:'button',class:'btn small'});
+  const sync=()=>{ const on=P.deck[id]!=null; b.setAttribute('aria-pressed',String(on)); b.textContent = on?'★ In your review deck':'☆ Add to review deck'; };
+  b.addEventListener('click',()=>{ if(P.deck[id]!=null) delete P.deck[id]; else P.deck[id]={b:1,due:0}; save(); sync(); renderReview(); });
+  sync(); return b;
+}
+// Drag-and-drop reordering with pointer; keyboard handled separately via grip buttons and ▲ ▼
+function makeSortable(list,itemSel,onMove){
+  let dragKey=null;
+  const clear=()=>$$(itemSel,list).forEach(x=>x.classList.remove('drop-target','drop-after'));
+  const end=()=>{ clear(); $$(itemSel,list).forEach(x=>{ x.classList.remove('dragging'); x.draggable=false; }); dragKey=null; };
+  list.addEventListener('pointerdown',e=>{ const g=e.target.closest('.grip'); if(!g) return; const li=g.closest(itemSel); if(li) li.draggable=true; });
+  list.addEventListener('pointerup',()=>{ if(dragKey==null) $$(itemSel,list).forEach(x=>x.draggable=false); });
+  list.addEventListener('dragstart',e=>{ const li=e.target.closest(itemSel); if(!li) return; dragKey=li.dataset.key; e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain',dragKey); }catch(_){} li.classList.add('dragging'); });
+  list.addEventListener('dragover',e=>{ if(dragKey==null) return; const li=e.target.closest(itemSel); if(!li) return; e.preventDefault(); clear(); const r=li.getBoundingClientRect(); li.classList.add(e.clientY>r.top+r.height/2?'drop-after':'drop-target'); });
+  list.addEventListener('drop',e=>{
+    if(dragKey==null) return; e.preventDefault();
+    const li=e.target.closest(itemSel), items=$$(itemSel,list), from=items.findIndex(x=>x.dataset.key===dragKey);
+    if(li && from>-1){ let to=items.indexOf(li); const r=li.getBoundingClientRect(); if(e.clientY>r.top+r.height/2) to++; if(from<to) to--; if(to!==from) onMove(from,to); }
+    end();
+  });
+  list.addEventListener('dragend',end);
+}
+function gripButton(name,i,n,onMove){
+  const g=h('button',{type:'button',class:'ib grip','aria-label':`Reorder ${name}, position ${i+1} of ${n}. Press up or down arrow to move.`});
+  g.append(icon('grip'));
+  g.addEventListener('keydown',e=>{
+    if(e.key==='ArrowUp' && i>0){ e.preventDefault(); onMove(i,i-1,'grip'); }
+    else if(e.key==='ArrowDown' && i<n-1){ e.preventDefault(); onMove(i,i+1,'grip'); }
+  });
+  return g;
+}
+
+/* =========================================================
+   PROGRESS
+   ========================================================= */
+function counts(){
+  const warmA=WARM.filter((q,i)=>P.warm[i]).length;
+  return {
+    warm:warmA, warmFirst:WARM.filter((q,i)=>P.warm[i]&&P.warm[i].first).length,
+    cats:CATS.filter(c=>P.cats[c.id]).length,
+    checks:CATS.filter(c=>P.checks[c.id]).length,
+    lab:LAB_GOALS.filter(g=>P.lab[g.id]).length,
+    order:ORDER.filter((o,i)=>P.order[i]).length,
+    topo:TOPO.filter((t,i)=>P.topo[i]).length,
+    which:WHICH.filter((t,i)=>P.which[i]).length,
+    quiz:QUIZ.filter((q,i)=>P.quiz[i]).length,
+    quizFirst:QUIZ.filter((q,i)=>P.quiz[i]&&P.quiz[i].first).length,
+    mist:MQ.filter((q,i)=>P.mist[i]).length,
+    proj:PROJECT.filter((p,i)=>P.proj[i]).length,
+    deck:Object.keys(P.deck).filter(id=>DECKMAP[id]).length,
+    deckDue:deckDueIds().length,
+    mastered:Object.keys(P.deck).filter(id=>DECKMAP[id]&&P.deck[id].b>=5).length,
+    final:P.final.done?1:0
+  };
+}
+const PARTS=()=>[WARM.length,CATS.length,CATS.length,LAB_GOALS.length,ORDER.length,TOPO.length,WHICH.length,QUIZ.length,MQ.length,PROJECT.length,4];
+function overallPct(c){
+  const total=PARTS().reduce((a,b)=>a+b,0);
+  const done=c.warm+c.cats+c.checks+c.lab+c.order+c.topo+c.which+c.quiz+c.mist+c.proj+c.final*4;
+  return Math.round(done/total*100);
+}
+function updateProgress(){
+  const c=counts(), pct=overallPct(c);
+  $('#prog-pct').textContent=pct+'%';
+  $('#prog-fill').style.width=pct+'%';
+  $('#prog-bar-fill').style.width=pct+'%';
+  $('.prog-bar').setAttribute('aria-valuenow',pct);
+  const rows=[
+    ['Warm-up questions',c.warm,WARM.length],
+    ['Categories explored',c.cats,CATS.length],
+    ['Quick checks passed',c.checks,CATS.length],
+    ['Weight lab',c.lab,LAB_GOALS.length],
+    ['Step order',c.order,ORDER.length],
+    ['Weight problems',c.topo,TOPO.length],
+    ['Which tool?',c.which,WHICH.length],
+    ['Scenario quiz',c.quiz,QUIZ.length],
+    ['Common mistakes questions',c.mist,MQ.length],
+    ['Mini project steps',c.proj,PROJECT.length],
+    ['Final challenge',c.final,1,P.final.best!=null?'Best '+P.final.best+'%':'Not attempted']
+  ];
+  const list=$('#prog-list'); list.innerHTML='';
+  rows.forEach(([lbl,v,max,txt])=>list.append(h('li',{class:v>=max?'done':''},h('span',{},lbl),h('span',{class:'v'},txt||(v+' / '+max)))));
+  const badge=(id,v,max,txt)=>{ const b=$(id); b.textContent=txt||(v+'/'+max); b.classList.toggle('done',max!=null&&v>=max); };
+  badge('#nb-warm',c.warm,WARM.length);
+  badge('#nb-learn',c.cats,CATS.length);
+  badge('#nb-lab',c.lab,LAB_GOALS.length);
+  badge('#nb-order',c.order,ORDER.length);
+  badge('#nb-topo',c.topo,TOPO.length);
+  badge('#nb-which',c.which,WHICH.length);
+  badge('#nb-quiz',c.quiz,QUIZ.length);
+  badge('#nb-mist',c.mist,MQ.length);
+  badge('#nb-proj',c.proj,PROJECT.length);
+  badge('#nb-review',0,null,String(c.deckDue));
+  badge('#nb-final',c.final,1,P.final.best!=null?P.final.best+'%':'–');
+  $$('.tab').forEach(t=>{ t.classList.toggle('seen',!!P.cats[t.dataset.cat]); t.classList.toggle('checked',!!P.checks[t.dataset.cat]); });
+  renderSummary();
+}
+$('#reset-btn').addEventListener('click',()=>{
+  if(!confirm('Reset all progress? This clears your answers, goals, project ticks, review deck and scores.')) return;
+  const mac=P.mac; P=blank(); if(typeof mac==='boolean') P.mac=mac;
+  $('#sum-name').value='';
+  labReset(); ordState=ORDER.map(o=>o.items.slice()); ordTries={};
+  save(); rerenderAll(); renderOrder(); renderTopo(); renderWhich(); renderLab(); $('#prog').open=false; toast('Progress reset');
+});
+
+/* ---------- Mac toggle ---------- */
+function syncMacButtons(){ $$('.mac-toggle').forEach(b=>{ b.setAttribute('aria-pressed',String(MAC)); b.textContent=MAC?'Showing Mac keys':'Show Mac keys'; }); }
+$$('.mac-toggle').forEach(b=>b.addEventListener('click',()=>{ MAC=!MAC; P.mac=MAC; save(); syncMacButtons(); rerenderAll(); toast(MAC?'Showing Mac keys (Cmd, Option)':'Showing Windows/Linux keys'); }));
+function rerenderAll(){ renderRecap(); renderWarm(); renderPanel(); refFilter(); renderQuiz(); renderMistakes(); renderProject(); renderReview(); if(!fc.active) fcIntro(); }
+
+(function(){ const hs=$('#hero-stack'); hs.append(h('div',{class:'dg',style:'width:100%'},h('div',{class:'dgbox',style:'width:100%;max-width:260px;margin:auto'},svgEl(AW('smooth',{bend:70,view:'weight',grp:'F'},'A bent arm coloured by its weights, blue at the shoulder and red at the hand'))))); })();
+/* =========================================================
+   WARM-UP
+   ========================================================= */
+function renderRecap(){
+  const box=$('#recap'); box.innerHTML='';
+  RECAP.forEach(([k,n,u])=>box.append(h('div',{class:'rc'}, renderKeys(k), h('h4',{},n), h('p',{},u))));
+}
+function renderWarm(){
+  const box=$('#warm-box'); box.innerHTML='';
+  const c=counts();
+  if(PREV && PREV.final && PREV.final.best!=null)
+    box.append(h('p',{class:'note'},h('strong',{},'Welcome back! '),`On this device you scored ${PREV.final.best}% in the Part 5 (Rigging) final challenge.`));
+  else if(PART1 && PART1.final && PART1.final.best!=null)
+    box.append(h('p',{class:'note'},h('strong',{},'Welcome back! '),`On this device you scored ${PART1.final.best}% in the Part 1 final challenge.`));
+  const status=h('div',{class:'warm-score'}, h('span',{class:'score-pill'},`Answered: ${c.warm} / ${WARM.length} · correct first time: ${c.warmFirst}`),
+    c.warm ? h('button',{type:'button',class:'btn small',onclick:()=>{ P.warm={}; save(); renderWarm(); }},'Try the warm-up again') : null);
+  box.append(h('h3',{style:'margin-top:24px'},'Warm-up quiz'), h('p',{class:'lead'},'Choose the shortcut for each task. Your first answer counts towards your warm-up score.'), status);
+  if(c.warm===WARM.length){
+    const missed=WARM.filter((q,i)=>!P.warm[i].first);
+    if(c.warmFirst<6) box.append(h('div',{class:'warnbox'}, h('strong',{},`You got ${c.warmFirst} of ${WARM.length} first time. `),
+      'This resource uses these shortcuts constantly, so spend 10 minutes back in the Shortcut Trainer first. Practise: ',
+      missed.map(q=>keysText(q.opts[q.a])).join(', '),'. ', h('a',{class:'btn small',href:'blender-shortcut-trainer.html',style:'margin-top:8px'},'Open the Shortcut Trainer (Part 1)')));
+    else box.append(h('div',{class:'all-done'}, h('strong',{},`${c.warmFirst} of ${WARM.length} first time — you’re ready. `), missed.length?`Keep an eye on: ${missed.map(q=>keysText(q.opts[q.a])).join(', ')}.`:'A perfect score!', ' ', h('a',{href:'#learn'},'Start learning →')));
+  }
+  box.append(h('div',{class:'mq-grid'}, WARM.map((q,i)=>mcBlock({...q,kind:'keys',label:`Warm-up ${i+1}`,done:!!P.warm[i],
+    doneTitle:P.warm[i]&&P.warm[i].first?'Correct first time.':'Answered.',
+    onCorrect:t=>{ P.warm[i]={first:t===0}; save(); if(counts().warm===WARM.length){ renderWarm(); const r=$('#warm-box .warnbox, #warm-box .all-done'); if(r){ r.tabIndex=-1; r.focus(); } } else { const sp=$('#warm-box .score-pill'); const cc=counts(); sp.textContent=`Answered: ${cc.warm} / ${WARM.length} · correct first time: ${cc.warmFirst}`; } }}))));
+  box.append(h('p',{style:'margin-top:14px;color:var(--muted);font-size:.92rem'},'Need a refresher at any point? ',h('a',{href:'blender-shortcut-trainer.html'},'Open the Blender Shortcut Trainer (Part 1)'),'.'));
+}
+
+/* =========================================================
+   LEARN: group filter, tabs, cards and quick checks
+   ========================================================= */
+let curCat=CATS[0].id, learnGroup='all';
+const tabsEl=$('#tabs'), panelEl=$('#learn-panel'), groupsEl=$('#learn-groups');
+GROUPS.forEach(g=>groupsEl.append(h('button',{type:'button',class:'chip','aria-pressed':String(g.id==='all'),'data-g':g.id,onclick:()=>setGroup(g.id)},g.name)));
+function setGroup(id){
+  learnGroup=id;
+  $$('.chip',groupsEl).forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.g===id)));
+  const vis=CATS.filter(c=>id==='all'||c.g===id);
+  $$('.tab').forEach(t=>t.hidden=!vis.some(c=>c.id===t.dataset.cat));
+  if(!vis.some(c=>c.id===curCat)) selectCat(vis[0].id); else renderPanel();
+}
+CATS.forEach((c,i)=>{
+  tabsEl.append(h('button',{type:'button',role:'tab',class:'tab',id:'tab-'+c.id,'data-cat':c.id,'aria-controls':'learn-panel','aria-selected':String(i===0),tabindex:i===0?'0':'-1',onclick:()=>selectCat(c.id)},
+    h('span',{class:'tab-num','aria-hidden':'true'},String(i+1)), c.name, h('span',{class:'tab-done'},h('span',{'aria-hidden':'true'},'✓'),h('span',{class:'sr-only'},' (explored)'))));
+});
+tabsEl.addEventListener('keydown',e=>{
+  const tabs=$$('.tab').filter(t=>!t.hidden), i=tabs.indexOf(document.activeElement); if(i<0) return;
+  let n=null;
+  if(e.key==='ArrowRight') n=(i+1)%tabs.length; else if(e.key==='ArrowLeft') n=(i-1+tabs.length)%tabs.length;
+  else if(e.key==='Home') n=0; else if(e.key==='End') n=tabs.length-1;
+  if(n!=null){ e.preventDefault(); selectCat(tabs[n].dataset.cat); tabs[n].focus(); }
+});
+function markCat(id){ if(!P.cats[id]){ P.cats[id]=true; save(); } }
+function selectCat(id,scroll){
+  curCat=id;
+  $$('.tab').forEach(t=>{ const on=t.dataset.cat===id; t.setAttribute('aria-selected',String(on)); t.tabIndex=on?0:-1; if(on) t.scrollIntoView({block:'nearest',inline:'nearest'}); });
+  renderPanel(); markCat(id);
+  if(scroll) $('#learn').scrollIntoView({behavior:reduceMotion?'auto':'smooth'});
+}
+function card(c){
+  const bid='card-b-'+c.id;
+  const btn=h('button',{type:'button',class:'card-head','aria-expanded':'false','aria-controls':bid},
+    h('span',{}, h('span',{class:'nm'},c.name), h('span',{class:'kind '+c.kind},c.kind)),
+    h('span',{class:'chev','aria-hidden':'true'},'▾'));
+  const body=h('div',{class:'card-body',id:bid,hidden:true},
+    h('div',{class:'msec'},h('h4',{},'What it does'),h('p',{},c.what)),
+    h('div',{class:'msec'},h('h4',{},'When to use it'),h('p',{class:'eg'},c.when)),
+    c.fig && D[c.fig] ? D[c.fig]() : null,
+    c.settings.length ? h('div',{class:'msec'},h('h4',{},'Key settings'),h('dl',{class:'setl'},c.settings.map(([n,d])=>[h('dt',{},n),h('dd',{},d)]))) : null,
+    c.keys.length ? h('div',{class:'msec'},h('h4',{},'Shortcuts'),h('ul',{class:'keyrows'},c.keys.map(([k,d])=>h('li',{},renderKeys(k),h('span',{},d))))) : null,
+    h('div',{class:'msec'},h('h4',{},'Common mistake'),h('div',{class:'mist'},h('p',{},c.mistake),h('p',{class:'fix'},h('strong',{},'Fix: '),c.fix))),
+    h('div',{class:'btn-row'},deckButton('L'+c.id)));
+  btn.addEventListener('click',()=>{ const open=btn.getAttribute('aria-expanded')==='true'; btn.setAttribute('aria-expanded',String(!open)); body.hidden=open; markCat(c.cat); });
+  return h('article',{class:'card'},btn,body);
+}
+const chkOrder={};
+function renderCheck(chk){
+  const order=chkOrder[chk.cat]||(chkOrder[chk.cat]=shuffle(chk.opts.map((_,i)=>i)));
+  return mcBlock({...chk,order,kind:chk.kind||'text',label:'✎ Quick check',done:!!P.checks[chk.cat],
+    onCorrect:()=>{ P.checks[chk.cat]=true; save(); toast('Quick check passed ✓'); },
+    onWrong:()=>addToDeck(cardId(chk.card))});
+}
+function renderPanel(){
+  const vis=CATS.filter(c=>learnGroup==='all'||c.g===learnGroup);
+  const c=CATMAP[curCat], idx=vis.indexOf(c), num=CATS.indexOf(c), list=LEARN.filter(s=>s.cat===c.id);
+  panelEl.setAttribute('aria-labelledby','tab-'+c.id);
+  panelEl.innerHTML='';
+  const grid=h('div',{class:'cards'},list.map(card));
+  const toggle=h('button',{type:'button',class:'btn small'},'Expand all');
+  toggle.addEventListener('click',()=>{
+    const open=toggle.textContent==='Expand all';
+    $$('.card-head',grid).forEach(b=>{ b.setAttribute('aria-expanded',String(open)); $('#'+b.getAttribute('aria-controls')).hidden=!open; });
+    toggle.textContent=open?'Collapse all':'Expand all'; markCat(c.id);
+  });
+  const dgKey=CAT_DG[c.id];
+  const prev=idx>0?h('button',{type:'button',class:'btn',onclick:()=>selectCat(vis[idx-1].id,true)},'← '+vis[idx-1].name):h('span');
+  const next=idx<vis.length-1?h('button',{type:'button',class:'btn primary',onclick:()=>selectCat(vis[idx+1].id,true)},vis[idx+1].name+' →')
+                             :h('a',{class:'btn primary',href:'#reference'},'Next: Reference →');
+  add(panelEl,
+    h('div',{class:'cat-head'},h('div',{},h('h3',{},`${num+1}. ${c.name}`),h('p',{},c.intro)),h('div',{class:'btn-row'},h('span',{class:'score-pill'},list.length+' cards'),toggle)),
+    h('div',{class:'cat-dg'}, dgKey==='panel'?modPanelMock():D[dgKey]()),
+    grid,
+    renderCheck(CHECKS.find(k=>k.cat===c.id)),
+    h('div',{class:'pager'},prev,next));
+}
+if('IntersectionObserver' in window){
+  new IntersectionObserver(es=>es.forEach(e=>{ if(e.isIntersecting) markCat(curCat); }),{rootMargin:'-35% 0px -35% 0px'}).observe(panelEl);
+}
+
+/* =========================================================
+   REFERENCE
+   ========================================================= */
+const REF=[];
+LEARN.forEach(c=>{
+  const type=c.kind==='Shortcut'?'Shortcut':c.kind==='Setting'?'Setting':'Technique';
+  REF.push({type,name:c.name,meta:CATMAP[c.cat].name+' · '+c.kind,desc:c.what,eg:c.when,keys:c.keys[0]?c.keys[0][0]:null,cat:c.cat});
+  c.settings.forEach(([n,d])=>REF.push({type:'Setting',name:n,meta:c.name,desc:d,cat:c.cat}));
+});
+SHORTS.forEach(s=>REF.push({type:'Shortcut',name:s.name,meta:CATMAP[s.cat].name,desc:s.desc,keys:s.keys,cat:s.cat}));
+const refQ=$('#ref-q'), refList=$('#ref-list'), refChips=$('#ref-chips'), refType=$('#ref-type');
+let refCat='all';
+[{id:'all',name:'All'}].concat(CATS).forEach(c=>{
+  refChips.append(h('button',{type:'button',class:'chip','aria-pressed':String(c.id==='all'),'data-c':c.id,onclick:()=>{
+    refCat=c.id; $$('.chip',refChips).forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.c===c.id))); refFilter(); }},c.name));
+});
+const escRe=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+function hl(text,toks){
+  const t=toks.filter(x=>x.length>1).map(escRe);
+  if(!t.length) return document.createTextNode(text);
+  const re=new RegExp('('+t.join('|')+')','ig'), f=document.createDocumentFragment();
+  text.split(re).forEach((part,i)=>{ if(part) f.append(i%2?h('mark',{},part):part); });
+  return f;
+}
+function refFilter(){
+  const q=refQ.value.trim().toLowerCase().replace(/\bcmd\b/g,'ctrl').replace(/\boption\b/g,'alt');
+  const toks=q.split(/[\s+]+/).filter(Boolean), ty=refType.value;
+  const res=REF.filter(r=>{
+    if(refCat!=='all' && r.cat!==refCat) return false;
+    if(ty!=='all' && r.type!==ty) return false;
+    if(!toks.length) return true;
+    const kt=(r.keys||'').toLowerCase().split(/[\s+\/]+/).filter(Boolean);
+    const hay=(r.name+' '+r.desc+' '+(r.eg||'')+' '+r.meta+' '+(r.keys||'')+' '+r.type).toLowerCase();
+    return toks.every(t=>t.length<=1?kt.includes(t):(kt.includes(t)||hay.includes(t)));
+  });
+  refList.innerHTML='';
+  res.forEach(r=>refList.append(h('li',{class:'ref-row'},
+    h('div',{}, r.keys?renderKeys(r.keys):h('span',{class:'type-tag'},r.type)),
+    h('div',{}, h('div',{class:'ref-name'},hl(r.name,toks)), h('div',{class:'ref-meta'},(r.keys?r.type+' · ':'')+r.meta)),
+    h('div',{class:'ref-desc'}, hl(r.desc,toks), r.eg?h('div',{class:'ref-eg'},'e.g. ',r.eg):null))));
+  if(!res.length) refList.append(h('li',{class:'empty'},'Nothing matches. Try a different word, such as “blur”, “normalize” or “deform”, or choose “All”.'));
+  $('#ref-count').textContent=`Showing ${res.length} of ${REF.length} entries`+(q?` for “${refQ.value.trim()}”`:'')+(refCat!=='all'?` in ${CATMAP[refCat].name}`:'');
+}
+refQ.addEventListener('input',refFilter);
+refType.addEventListener('change',refFilter);
+$('#ref-clear').addEventListener('click',()=>{ refQ.value=''; refType.value='all'; refCat='all'; $$('.chip',refChips).forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.c==='all'))); refFilter(); refQ.focus(); });
+function printNode(node){ const pa=$('#print-area'); pa.innerHTML=''; pa.append(node); window.print(); }
+$('#print-cheat').addEventListener('click',()=>{
+  const sec=(t,...kids)=>h('section',{},h('h2',{},t),kids);
+  printNode(h('div',{},
+    h('h1',{},'Blender Weight Painting — Cheat Sheet (Part 6)'),
+    h('p',{},'Blender 4.x · default keymap'+(MAC?' · Mac keys shown':'')+' · Built-in weight tools only, no add-ons.'),
+    h('div',{class:'cheat'},
+      sec('Weighting workflow',h('ol',{},['Turn Deform off on control bones.','Select the armature, Shift-click the mesh, switch to Weight Paint.','Bend a joint to a test pose.','Choose the bone (or its group).','Draw or Subtract mistakes, then Blur across the joint.','Clear the pose and test again.','Clean, then Normalize All, then Mirror.'].map(x=>h('li',{},x)))),
+      sec('Weight colours',h('p',{},'0 blue · 0.25 cyan · 0.5 green · 0.75 yellow · 1 red. Zero Weights overlay: true zeros in black.')),
+      sec('Shortcuts',...SHORTS.map(s=>h('div',{class:'row'},h('span',{},s.name),renderKeys(s.keys)))),
+      sec('Recap from earlier parts',...RECAP.map(([k,n])=>h('div',{class:'row'},h('span',{},n),renderKeys(k)))),
+      sec('Clean-up checklist',h('ul',{},['Auto Normalize on while painting.','Weights › Clean (limit 0.01).','Limit Total 4 for game engines.','Normalize All last.','Zero Weights › All: no black spots.','Preserve Volume for twisting joints.'].map(x=>h('li',{},x)))),
+      sec('Fix it fast',...MISTAKES.slice(0,7).map(m=>h('p',{},h('strong',{},m.t+': '),m.fix.split('. ')[0]+'.'))))));
+});
+
+/* =========================================================
+   WEIGHT LAB
+   ========================================================= */
+const lab={};
+const GRPN={U:'UpperArm.L',F:'Forearm.L'}, TOOLN={draw:'Draw',add:'Add',sub:'Subtract',blur:'Blur'};
+function labReset(){
+  const w=WSET('stray');
+  Object.assign(lab,{bend:0,view:'solid',grp:'U',tool:'draw',radius:2,strength:.5,weight:1,autoNorm:true,pv:false,cur:12,normFixed:false,F:w.F,U:w.U});
+  const b=$('#lab-view'); if(b) b.dataset.ready='';
+}
+function labShares(){ return shares(lab.F,lab.U).map(v=>v==null?0:v); }
+function maxJump(a){ let m=0; for(let i=1;i<a.length;i++) m=Math.max(m,Math.abs(a[i]-a[i-1])); return m; }
+function paintCol(c,amt){
+  const G=lab[lab.grp], O=lab[lab.grp==='U'?'F':'U'], copy=G.slice(), r=lab.radius;
+  for(let j=Math.max(0,c-r); j<=Math.min(NC-1,c+r); j++){
+    const fall=r?1-Math.abs(j-c)/(r+1):1, a=Math.min(1,amt*lab.strength*fall);
+    let w=G[j];
+    if(lab.tool==='draw') w+=(lab.weight-w)*a;
+    else if(lab.tool==='add') w+=lab.weight*a;
+    else if(lab.tool==='sub') w-=lab.weight*a;
+    else { const avg=(copy[Math.max(0,j-1)]+copy[j]+copy[Math.min(NC-1,j+1)])/3; w+=(avg-w)*a; }
+    G[j]=Math.max(0,Math.min(1,w));
+    if(lab.autoNorm) O[j]=1-G[j];
+  }
+}
+function smoothAll(){
+  const G=lab[lab.grp], O=lab[lab.grp==='U'?'F':'U'], c=G.slice();
+  for(let j=0;j<NC;j++){ const avg=(c[Math.max(0,j-1)]+c[j]+c[Math.min(NC-1,j+1)])/3; G[j]=c[j]+(avg-c[j])*.5; if(lab.autoNorm) O[j]=1-G[j]; }
+}
+function normalizeAll(){
+  let off=false;
+  for(let j=0;j<NC;j++){ const s=lab.U[j]+lab.F[j]; if(Math.abs(s-1)>.1) off=true; if(s>1e-4){ lab.U[j]/=s; lab.F[j]/=s; } }
+  if(off) lab.normFixed=true;
+  return off;
+}
+labReset();
+let labRaf=0, labMid=[];
+function queueLab(){ if(labRaf) return; labRaf=requestAnimationFrame(()=>{ labRaf=0; renderLab(); }); }
+function renderLab(){
+  const box=$('#lab-view');
+  if(!box.dataset.ready){
+    box.innerHTML=''; box.dataset.ready='1';
+    const seg=(key,list,label)=>h('div',{class:'seg',role:'group','aria-label':label},list.map(([v,l])=>h('button',{type:'button','data-k':key,'data-v':v,onclick:()=>{ lab[key]=v; renderLab(); }},l)));
+    const rng=(label,key,min,max,step)=>{ const inp=h('input',{type:'range',min,max,step,value:lab[key],'aria-label':label}); inp.addEventListener('input',()=>{ lab[key]=+inp.value; renderLab(); }); return h('label',{},label+': ',h('strong',{'data-o':key}),inp); };
+    const cb=(label,key)=>{ const i=h('input',{type:'checkbox','data-c':key}); i.checked=!!lab[key]; i.addEventListener('change',()=>{ lab[key]=i.checked; renderLab(); }); return h('label',{class:'switch',style:'margin:6px 0;display:flex'},i,label); };
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 300 225'); svg.setAttribute('id','lab-svg'); svg.setAttribute('tabindex','0'); svg.setAttribute('role','application');
+    svg.setAttribute('aria-label','Arm mesh. In Weight view, drag over the mesh to paint. With the keyboard, use the left and right arrow keys to move the brush and Space to paint.');
+    let down=false;
+    const at=e=>{ const m=svg.getScreenCTM(); if(!m) return -1; const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY; const p=pt.matrixTransform(m.inverse()); let best=-1,bd=1e9; labMid.forEach((q,i)=>{ const d=Math.hypot(q[0]-p.x,q[1]-p.y); if(d<bd){ bd=d; best=i; } }); return bd<45?best:-1; };
+    svg.addEventListener('pointerdown',e=>{ if(lab.view!=='weight'){ toast('Switch to Weight view to paint'); return; } const i=at(e); if(i<0) return; e.preventDefault(); down=true; try{ svg.setPointerCapture(e.pointerId); }catch(_){} lab.cur=i; paintCol(i,.6); queueLab(); });
+    svg.addEventListener('pointermove',e=>{ if(!down) return; const i=at(e); if(i<0) return; lab.cur=i; paintCol(i,.3); queueLab(); });
+    const up=()=>{ down=false; }; svg.addEventListener('pointerup',up); svg.addEventListener('pointercancel',up);
+    svg.addEventListener('keydown',e=>{
+      if(e.key==='ArrowLeft'||e.key==='ArrowRight'){ e.preventDefault(); lab.cur=Math.max(0,Math.min(NC-1,lab.cur+(e.key==='ArrowRight'?1:-1))); renderLab(); }
+      else if(e.key===' '||e.key==='Enter'){ e.preventDefault(); if(lab.view!=='weight'){ toast('Switch to Weight view to paint'); return; } paintCol(lab.cur,1); renderLab(); }
+    });
+    add(box,
+      h('p',{style:'color:var(--muted)'},'A simplified arm with two bones and two vertex groups. Bend the elbow, switch to Weight view and paint by dragging over the mesh. Keyboard: focus the viewport, move the brush with ← and →, and press Space to paint.'),
+      h('div',{class:'vp-shell'},
+        h('div',{class:'vp-header'},h('span',{class:'vp-modebox'},'Weight Paint'),seg('view',[['solid','Solid'],['weight','Weight view']],'Viewport display'),h('span',{class:'spacer'}),seg('grp',[['U','UpperArm.L'],['F','Forearm.L']],'Active vertex group')),
+        h('div',{class:'lab-vp'},svg,h('div',{class:'vp-label',id:'lab-lbl'}),h('div',{class:'vp-count',id:'lab-cnt'})),
+        h('div',{class:'vp-status'},h('ul',{id:'lab-st'}))),
+      h('div',{class:'wl-ctrls'},
+        rng('Elbow bend (°)','bend',0,150,1),
+        h('div',{},h('p',{style:'margin:6px 0 4px;font-size:.9rem'},'Brush'),seg('tool',[['draw','Draw'],['add','Add'],['sub','Subtract'],['blur','Blur']],'Brush')),
+        rng('Weight','weight',0,1,.05),
+        rng('Radius','radius',0,4,1),
+        rng('Strength','strength',.1,1,.05),
+        h('div',{},cb('Auto Normalize','autoNorm'),cb('Preserve Volume','pv'))),
+      h('div',{class:'btn-row',style:'margin-top:10px'},
+        h('button',{type:'button',class:'btn small',onclick:()=>{ smoothAll(); renderLab(); toast('Weights › Smooth on '+GRPN[lab.grp]); }},'Weights › Smooth'),
+        h('button',{type:'button',class:'btn small',onclick:()=>{ const off=normalizeAll(); renderLab(); toast(off?'Normalize All: every vertex now adds up to 1':'The totals were already 1'); }},'Weights › Normalize All'),
+        h('button',{type:'button',class:'btn small',onclick:()=>{ labReset(); renderLab(); }},'Reset lab')),
+      h('div',{class:'wl-key'},h('span',{},'0'),h('span',{class:'wramp','aria-hidden':'true'}),h('span',{},'1'),h('span',{style:'color:var(--muted)'},'Weight colours for the active group')),
+      h('p',{class:'sr-only','aria-live':'polite',id:'lab-desc'}));
+  }
+  const r=armMarkup({...lab,cursor:lab.view==='weight'?lab.cur:null,brushR:lab.radius});
+  labMid=r.mid; $('#lab-svg').innerHTML=r.s;
+  let thick=1; for(let i=9;i<=15;i++) thick=Math.min(thick,Math.hypot(r.top[i][0]-r.bot[i][0],r.top[i][1]-r.bot[i][1])/(2*TH(i)));
+  const pct=Math.round(thick*100), s=labShares(), G=lab[lab.grp];
+  $$('[data-k]',box).forEach(b=>b.setAttribute('aria-pressed',String(String(lab[b.dataset.k])===b.dataset.v)));
+  $$('[data-o]',box).forEach(o=>{ const v=lab[o.dataset.o]; o.textContent=o.dataset.o==='bend'||o.dataset.o==='radius'?String(Math.round(v)):(+v).toFixed(2); });
+  $$('[data-c]',box).forEach(c=>c.checked=!!lab[c.dataset.c]);
+  const lbl=$('#lab-lbl'); lbl.innerHTML=''; lbl.append('Active group: '+GRPN[lab.grp],h('br'),lab.view==='weight'?`Brush: ${TOOLN[lab.tool]} · Weight ${lab.weight.toFixed(2)}`:'Solid view');
+  $('#lab-cnt').textContent='Elbow '+pct+'%';
+  const st=[];
+  if(lab.U.some((u,i)=>u+lab.F[i]<1e-4)) st.push(['w','Some vertices have no weight, so they stay behind.']);
+  if(s.slice(17).some(v=>v<.95)) st.push(['w','Stray weight near the wrist: part of the forearm follows the upper arm.']);
+  if(maxJump(s)>.35) st.push(['w','Hard step in the weights at the elbow: it will crease when bent.']);
+  if(lab.U.some((u,i)=>Math.abs(u+lab.F[i]-1)>.05)) st.push(['w','Totals are not 1. The mesh follows the ratio, so the colours can mislead you.']);
+  if(lab.bend>=45 && thick<.8) st.push(['w',`The elbow is ${pct}% of its rest thickness.`+(lab.pv?'':' Try Preserve Volume.')]);
+  if(!st.length) st.push(['g',lab.bend>=45?'Weights look clean and the elbow bends well.':'No problems found yet. Bend the elbow to test the weights.']);
+  const ul=$('#lab-st'); ul.innerHTML=''; st.forEach(([c,t])=>ul.append(h('li',{class:c},t)));
+  $('#lab-desc').textContent=`${lab.view==='weight'?'Weight view':'Solid view'}. Active group ${GRPN[lab.grp]}. Elbow bent ${lab.bend} degrees, ${pct}% thickness. Brush at column ${lab.cur+1} of ${NC}, weight ${G[lab.cur].toFixed(2)}.`;
+  checkGoals();
+}
+function checkGoals(){
+  let ch=false;
+  LAB_GOALS.forEach(g=>{ if(!P.lab[g.id] && g.test(lab)){ P.lab[g.id]=true; ch=true; toast('Goal complete: '+g.t+' ✓'); } });
+  if(ch) save();
+  const ol=$('#lab-goals'); ol.innerHTML='';
+  LAB_GOALS.forEach((g,i)=>ol.append(h('li',{class:'goal'+(P.lab[g.id]?' done':'')},h('span',{class:'goal-st','aria-hidden':'true'},P.lab[g.id]?'✓':String(i+1)),h('div',{},h('h4',{},g.t,h('span',{class:'sr-only'},P.lab[g.id]?' (complete)':' (not yet complete)')),h('p',{},g.d)))));
+}
+
+
+
+/* =========================================================
+   FIX THE STACK ORDER
+   ========================================================= */
+let ordState=ORDER.map(o=>o.items.slice()), ordTries={};
+const ORDW="weighting steps";
+const ordLive=t=>{ const l=$('#order-live'); l.textContent=''; setTimeout(()=>l.textContent=t,30); };
+function renderOrder(focus){
+  const box=$('#order-box'); box.innerHTML='';
+  ORDER.forEach((o,pi)=>{
+    const solved=!!P.order[pi], arr=solved?o.correct[0].slice():ordState[pi], n=arr.length;
+    const fb=h('div',{class:'fb','aria-live':'polite'});
+    const move=(a,b,ctl)=>{ if(b<0||b>=n) return; const it=arr.splice(a,1)[0]; arr.splice(b,0,it); renderOrder({pi,key:it,ctl}); ordLive(`${it} moved to position ${b+1} of ${n}.`); };
+    const ol=h('ol',{class:'olist','aria-label':`${o.t}: ${ORDW}, top to bottom`});
+    arr.forEach((name,i)=>{
+      const grip=gripButton(name,i,n,move); if(solved) grip.disabled=true;
+      const up=h('button',{type:'button',class:'ib','aria-label':`Move ${name} up`,disabled:solved||i===0,onclick:()=>move(i,i-1,'up')},'▲');
+      const dn=h('button',{type:'button',class:'ib','aria-label':`Move ${name} down`,disabled:solved||i===n-1,onclick:()=>move(i,i+1,'down')},'▼');
+      const nm=h('span',{class:'ms-name'}); nm.append(name);
+      const li=h('li',{class:'oi'+(solved?' right':''),'data-key':name},grip,h('span',{class:'ms-idx','aria-hidden':'true'},String(i+1)),nm,up,dn);
+      ol.append(li);
+      if(focus && focus.pi===pi && focus.key===name){ const t={grip,up,down:dn}[focus.ctl]||grip; setTimeout(()=>(t.disabled?grip:t).focus(),0); }
+    });
+    if(!solved) makeSortable(ol,'.oi',(a,b)=>move(a,b,'grip'));
+    const check=h('button',{type:'button',class:'btn primary',disabled:solved},'Check order');
+    const tries=ordTries[pi]||0;
+    const show=h('button',{type:'button',class:'btn',hidden:solved||tries<2},'Show answer');
+    check.addEventListener('click',()=>{
+      const ok=o.correct.some(c=>c.every((x,i)=>x===arr[i]));
+      if(ok){ P.order[pi]={first:tries===0}; save(); renderOrder(); toast('Order correct ✓'); const f=$$('#order-box .ord')[pi].querySelector('.fb'); if(f){ f.tabIndex=-1; f.focus(); } return; }
+      ordTries[pi]=tries+1;
+      const ref=o.correct[0]; let right=0;
+      $$('.oi',ol).forEach((li,i)=>{ const r=li.dataset.key===ref[i]; if(r) right++; li.classList.toggle('right',r); li.classList.toggle('wrongpos',!r); });
+      feedback(fb,'hint',`Not yet — ${right} of ${n} are in the right place (green).`, ordTries[pi]>=2?'Think about what each step needs from the step before it. You can also reveal the answer.':'Think about what each step needs from the step before it: which must happen first?');
+      show.hidden=ordTries[pi]<2;
+    });
+    show.addEventListener('click',()=>{ P.order[pi]={first:false}; save(); renderOrder(); });
+    if(solved) feedback(fb,'ok',P.order[pi].first?'Correct first time!':'Correct order',o.why);
+    box.append(h('div',{class:'ord'+(solved?' solved':''),role:'group','aria-label':o.t},
+      h('h3',{},`${pi+1}. ${o.t}`), h('p',{},o.d), h('p',{class:'eyebrow',style:'margin:0 0 6px'},'First step (do this first)'), ol,
+      h('div',{class:'btn-row'},check,show), fb));
+  });
+}
+
+/* =========================================================
+   SPOT THE TOPOLOGY PROBLEM
+   ========================================================= */
+const TOPO_DEF=['Stray weights make parts follow a bone they should not.','Unweighted vertices stay behind in the rest pose.','Weights that jump from 0 to 1 make a joint crease.','A control bone with Deform on gets its own vertex group and tugs the mesh.','Painting the wrong group changes a different bone.','No problem means weights that fade smoothly and stay where they belong.'];
+function renderTopo(){
+  const box=$('#topo-box'); box.innerHTML='';
+  TOPO.forEach((t,i)=>{
+    const done=!!P.topo[i], fb=h('div',{class:'fb','aria-live':'polite'});
+    const figWrap=h('div',{}, h('div',{class:'dgrow'},t.figs(done).map(([s,c])=>dg(s,c))));
+    const opts=h('div',{class:'opts'});
+    TOPO_OPTS.forEach((o,oi)=>{
+      const b=h('button',{type:'button',class:'opt'+(done&&oi===t.a?' correct':''),disabled:done},h('span',{class:'lbl'},o),h('span',{class:'mark','aria-hidden':'true'}));
+      b.addEventListener('click',()=>{
+        if(oi===t.a){ P.topo[i]=true; save(); figWrap.innerHTML=''; figWrap.append(h('div',{class:'dgrow'},t.figs(true).map(([s,c])=>dg(s,c))));
+          b.classList.add('correct'); $$('.opt',opts).forEach(x=>x.disabled=true); feedback(fb,'ok','Correct!',t.explain); h3.parentElement.classList.add('solved'); }
+        else { b.classList.add('wrong'); b.disabled=true; feedback(fb,'hint',`Not quite. ${TOPO_DEF[oi]} Look again.`,''); addToDeck(cardId(t.card)); }
+      });
+      opts.append(b);
+    });
+    if(done) feedback(fb,'ok','Correct!',t.explain);
+    const h3=h('p',{class:'kc-q'},`${i+1}. ${t.q}`);
+    box.append(h('div',{class:'spot'+(done?' solved':''),role:'group','aria-label':'Problem '+(i+1)},h3,figWrap,opts,fb));
+  });
+}
+
+/* =========================================================
+   WHICH MODIFIER?
+   ========================================================= */
+const whichOpts=WHICH.map(w=>shuffle([w.ans].concat(shuffle(WHICH_OPTS.filter(x=>x!==w.ans)).slice(0,3))));
+const whichTries={};
+function renderWhich(){
+  const box=$('#which-box'); box.innerHTML='';
+  WHICH.forEach((w,i)=>{
+    const done=!!P.which[i], fb=h('div',{class:'fb','aria-live':'polite'}), opts=h('div',{class:'opts'});
+    whichOpts[i].forEach(o=>{
+      const b=h('button',{type:'button',class:'opt'+(done&&o===w.ans?' correct':''),disabled:done},h('span',{class:'lbl'},o),h('span',{class:'mark','aria-hidden':'true'}));
+      b.addEventListener('click',()=>{
+        const t=whichTries[i]||0;
+        if(o===w.ans){ P.which[i]={first:t===0}; save(); b.classList.add('correct'); $$('.opt',opts).forEach(x=>x.disabled=true); feedback(fb,'ok',t===0?'Correct!':'Correct — got there!',w.explain); wrap.classList.add('solved'); }
+        else { whichTries[i]=t+1; b.classList.add('wrong'); b.disabled=true; addToDeck(cardId(w.card));
+          if(t===0) feedback(fb,'hint','Not quite — here’s a hint.',w.hint);
+          else { $$('.opt',opts).forEach(x=>{ x.disabled=true; if(x.textContent.startsWith(w.ans)) x.classList.add('correct'); }); P.which[i]={first:false}; save();
+            feedback(fb,'bad',`It was ${w.ans}.`,w.explain+' It has been added to your review deck.'); wrap.classList.add('solved'); }
+        }
+      });
+      opts.append(b);
+    });
+    if(done) feedback(fb,'ok','Correct!',w.explain);
+    const wrap=h('div',{class:'spot'+(done?' solved':''),role:'group','aria-label':'Picture '+(i+1)},
+      h('p',{class:'kc-q'},`${i+1}. Which tool turned the left picture into the right one?`),
+      dgRow(dg(w.b(),'Before'),dgArrow('?'),dg(w.a(),'After')), opts, fb);
+    box.append(wrap);
+  });
+}
+
+/* =========================================================
+   SCENARIO QUIZ
+   ========================================================= */
+const qOrder=QUIZ.map(q=>shuffle(q.opts.map((_,i)=>i)));
+const qTries={}, qHint={};
+let qi=0;
+function renderQuiz(focusQ){
+  const box=$('#quiz-box'); box.innerHTML='';
+  const q=QUIZ[qi], st=P.quiz[qi], c=counts();
+  const dots=h('ol',{class:'dots','aria-label':'Scenarios'});
+  QUIZ.forEach((_,i)=>{
+    const s=P.quiz[i];
+    const d=h('button',{type:'button',class:'dot'+(s?(s.first?' first':' later'):''),'aria-label':`Scenario ${i+1}`+(s?(s.first?', correct first time':', answered'):''),onclick:()=>{qi=i;renderQuiz(true);}},String(i+1));
+    if(i===qi) d.setAttribute('aria-current','step');
+    dots.append(h('li',{},d));
+  });
+  box.append(h('div',{class:'quiz-top'},dots,h('span',{class:'score-pill'},`Correct first time: ${c.quizFirst} / ${c.quiz} answered`)));
+  const fb=h('div',{class:'fb','aria-live':'polite'});
+  const hintBox=h('div',{class:'hintbox',id:'qhint',hidden:!qHint[qi]},h('strong',{},'Hint: '),q.hint);
+  const hintBtn=h('button',{type:'button',class:'btn small','aria-expanded':String(!!qHint[qi]),'aria-controls':'qhint'},'💡 Show hint');
+  hintBtn.addEventListener('click',()=>{ qHint[qi]=true; hintBox.hidden=false; hintBtn.setAttribute('aria-expanded','true'); hintBtn.disabled=true; });
+  if(qHint[qi]||st) hintBtn.disabled=true;
+  const opts=h('div',{class:'opts text-opts'});
+  qOrder[qi].forEach(i=>{
+    const b=h('button',{type:'button',class:'opt','data-i':String(i)},h('span',{class:'lbl'},q.opts[i]),h('span',{class:'mark','aria-hidden':'true'}));
+    if(st){ b.disabled=true; if(i===q.a) b.classList.add('correct'); }
+    b.addEventListener('click',()=>{
+      if(P.quiz[qi]) return;
+      const tries=qTries[qi]||0;
+      if(i===q.a){
+        b.classList.add('correct'); $$('.opt',opts).forEach(x=>x.disabled=true);
+        P.quiz[qi]={first:tries===0}; save();
+        feedback(fb,'ok',tries===0?'Correct — first time!':'Correct!',q.explain); hintBtn.disabled=true; refreshQuizTop();
+      } else {
+        qTries[qi]=tries+1; b.classList.add('wrong'); b.disabled=true; addToDeck(cardId(q.card));
+        if(tries===0){
+          qHint[qi]=true; hintBox.hidden=false; hintBtn.disabled=true; hintBtn.setAttribute('aria-expanded','true');
+          feedback(fb,'hint','Not quite — have another go.',q.notes[i]+' Read the hint below.');
+        } else {
+          $$('.opt',opts).forEach(x=>x.disabled=true);
+          opts.querySelector(`[data-i="${q.a}"]`).classList.add('correct');
+          P.quiz[qi]={first:false}; save();
+          feedback(fb,'bad','Not this time.',q.notes[i]+' The best approach: '+q.opts[q.a]+'. '+q.explain+' This topic has been added to your review deck.');
+          refreshQuizTop();
+        }
+      }
+    });
+    opts.append(b);
+  });
+  if(st) feedback(fb,'ok',st.first?'You answered this correctly first time.':'Answered.',q.explain);
+  const qh=h('p',{class:'scen',tabindex:'-1'},q.q);
+  const prev=h('button',{type:'button',class:'btn',disabled:qi===0,onclick:()=>{qi--;renderQuiz(true);}},'← Previous');
+  const last=qi===QUIZ.length-1;
+  const next=last?h('a',{class:'btn primary',href:'#mistakes'},'Next: Common mistakes →'):h('button',{type:'button',class:'btn primary',onclick:()=>{qi++;renderQuiz(true);}},'Next scenario →');
+  box.append(h('p',{class:'eyebrow'},`Scenario ${qi+1} of ${QUIZ.length}`),qh,h('p',{class:'qsub'},'What is the best approach?'),
+    opts,h('div',{class:'btn-row',style:'margin-top:12px'},hintBtn),hintBox,fb,h('div',{class:'pager'},prev,next));
+  if(focusQ) qh.focus();
+}
+function refreshQuizTop(){
+  const c=counts();
+  $$('#quiz-box .dot').forEach((d,i)=>{ const s=P.quiz[i]; d.className='dot'+(s?(s.first?' first':' later'):''); });
+  const pill=$('#quiz-box .score-pill'); if(pill) pill.textContent=`Correct first time: ${c.quizFirst} / ${c.quiz} answered`;
+  if(c.quiz===QUIZ.length) toast(`Scenario quiz complete: ${c.quizFirst}/${QUIZ.length} first time`);
+}
+
+/* =========================================================
+   COMMON MISTAKES
+   ========================================================= */
+function renderMistakes(){
+  const box=$('#mist-box'); box.innerHTML='';
+  box.append(
+    h('div',{},MISTAKES.map(m=>h('details',{class:'acc'},h('summary',{},m.t),
+      h('div',{class:'acc-body'},h('p',{class:'why'},h('strong',{style:'color:var(--text)'},'Why it happens: '),m.why),h('p',{class:'fix'},h('strong',{},'Fix: '),m.fix))))),
+
+    h('h3',{style:'margin-top:28px'},'What would you do?'),
+    h('div',{class:'mq-grid'},MQ.map((q,i)=>mcBlock({...q,kind:'text',label:`Problem ${i+1}`,done:!!P.mist[i],onCorrect:()=>{ P.mist[i]=true; save(); }}))));
+}
+
+/* =========================================================
+   MINI PROJECT
+   ========================================================= */
+let reflectT;
+function renderProject(){
+  const box=$('#proj-box'); box.innerHTML='';
+  const ta=h('textarea',{id:'reflect','aria-describedby':'reflect-q'}); ta.value=P.reflect||'';
+  ta.addEventListener('input',()=>{ P.reflect=ta.value; clearTimeout(reflectT); reflectT=setTimeout(save,400); });
+  add(box,
+h('div',{class:'panel',style:'margin-bottom:16px'},h('h3',{style:'font-size:1.02rem'},'What you will make'),h('p',{style:'color:var(--muted);font-size:.94rem;margin:0'},'Your Part 5 rig with clean weights: smooth elbows and knees, shoulders and hips that hold their shape, no stray or missing weights, and three strong posed renders.'),h('div',{class:'stackchip'},h('strong',{},'Workflow: '),h('span',{class:'m'},'Pose'),h('span',{class:'a'},'→'),h('span',{class:'m'},'Paint'),h('span',{class:'a'},'→'),h('span',{class:'m'},'Blur'),h('span',{class:'a'},'→'),h('span',{class:'m'},'Clean'),h('span',{class:'a'},'→'),h('span',{class:'m'},'Test'))),
+    h('ol',{class:'proj'},PROJECT.map((p,i)=>{
+      const id='proj-'+i, cb=h('input',{type:'checkbox',id}); cb.checked=!!P.proj[i];
+      const li=h('li',{class:P.proj[i]?'done':''},cb,h('div',{},
+        h('h4',{},h('label',{for:id},`${i+1}. ${p.t}`)),h('p',{},p.d),
+        h('div',{class:'keys-list'},p.k.map(k=>renderKeys(k))),
+        p.stack?h('div',{class:'stackchip'},h('span',{style:'color:var(--muted)'},'Stack: '),p.stack.map((m,j)=>[j?h('span',{class:'a'},'→'):null,h('span',{class:'m'},m)])):null));
+      cb.addEventListener('change',()=>{ P.proj[i]=cb.checked; li.classList.toggle('done',cb.checked); save(); if(PROJECT.every((_,j)=>P.proj[j])) toast('Mini project complete! ☕'); });
+      return li;
+    })),
+    h('div',{class:'panel',style:'margin-top:16px'},
+      h('h3',{style:'font-size:1.05rem'},'Extension tasks'),
+      h('ul',{class:'outcomes'},EXT.map(t=>h('li',{},t)))),
+    h('div',{class:'panel',style:'margin-top:16px'},
+      h('h3',{style:'font-size:1.05rem'},'Reflection'),
+      h('p',{id:'reflect-q',style:'color:var(--muted)'},'Which joint needed the most work, and why? What did you learn from painting while the joint was bent? Which tool from the Weights menu helped most, and what would you do differently next time?'),
+      ta,h('p',{style:'font-size:.85rem;color:var(--muted);margin-top:6px'},'Saved automatically and included in your summary.')));
+}
+
+/* =========================================================
+   REVIEW DECK (Leitner boxes with spaced review dates)
+   ========================================================= */
+let rv=null;
+const DAY=864e5, INTERVAL={1:0,2:1,3:3,4:7,5:16};
+const BOXES=['New / missed','Learning','Getting there','Nearly there','Mastered'];
+function deckIds(){ return Object.keys(P.deck).filter(id=>DECKMAP[id]); }
+function deckDueIds(){ const now=Date.now(); return deckIds().filter(id=>P.deck[id].b<5 && (P.deck[id].due||0)<=now); }
+function addMany(list){ let n=0; list.forEach(d=>{ if(P.deck[d.id]==null){ P.deck[d.id]={b:1,due:0}; n++; } }); save(); renderReview(); toast(n?`Added ${n} card${n===1?'':'s'}`:'Those cards are already in your deck'); }
+function renderReview(){
+  const box=$('#review-box'); box.innerHTML='';
+  if(rv && !rv.done) return renderFlash(box);
+  const ids=deckIds(), by=[0,0,0,0,0]; ids.forEach(id=>by[Math.min(5,P.deck[id].b)-1]++);
+  const due=deckDueIds().length, learning=ids.filter(id=>P.deck[id].b<5).length;
+  const next=ids.filter(id=>P.deck[id].b<5 && P.deck[id].due>Date.now()).map(id=>P.deck[id].due).sort((a,b)=>a-b)[0];
+  const pressT=h('input',{type:'checkbox'}); pressT.checked=!!P.deckPress;
+  pressT.addEventListener('change',()=>{ P.deckPress=pressT.checked; save(); });
+  const sel=h('select',{'aria-label':'Category to add'},CATS.map(c=>h('option',{value:c.id},c.name)));
+  add(box,
+    rv&&rv.done?h('div',{class:'all-done'},h('strong',{},'Session complete. '),`Knew it: ${rv.r.yes} · Unsure: ${rv.r.unsure} · Didn’t know: ${rv.r.no}`):null,
+    h('p',{},ids.length?`Your deck has ${ids.length} card${ids.length===1?'':'s'}: ${due} due now, ${learning-due} waiting for a later review, ${by[4]} mastered.`:'Your deck is empty. Topics you get wrong in activities are added automatically, or add some below.'),
+    !due && next ? h('p',{style:'color:var(--muted);font-size:.92rem'},'Next card due: '+new Date(next).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'})+'. Spacing out reviews helps you remember for longer.') : null,
+    h('div',{class:'deck-stats'},BOXES.map((l,i)=>h('div',{class:'box-stat'+(i===4?' m':'')},h('b',{},String(by[i])),l))),
+    h('div',{class:'btn-row'},
+      h('button',{type:'button',class:'btn primary',disabled:!due,onclick:()=>startReview(false)},`Review due cards (${Math.min(10,due)})`),
+      !due && learning ? h('button',{type:'button',class:'btn',onclick:()=>startReview(true)},'Practise early anyway') : null,
+      h('label',{class:'switch'},pressT,'Answer shortcut cards by pressing the keys')),
+    h('h3',{style:'margin-top:22px;font-size:1rem'},'Add cards'),
+    h('div',{class:'btn-row'},sel,
+      h('button',{type:'button',class:'btn',onclick:()=>addMany(DECK.filter(d=>d.cat===sel.value))},'Add this category'),
+      h('button',{type:'button',class:'btn',onclick:()=>addMany(DECK.filter(d=>d.press))},'Add all shortcuts'),
+      h('button',{type:'button',class:'btn',onclick:()=>addMany(DECK)},'Add every card'),
+      ids.length?h('button',{type:'button',class:'btn',onclick:()=>{ if(confirm('Remove all cards from your review deck?')){ P.deck={}; save(); renderReview(); } }},'Clear deck'):null));
+}
+function startReview(early){
+  const ids=early?deckIds().filter(id=>P.deck[id].b<5):deckDueIds();
+  const q=shuffle(ids).sort((a,b)=>P.deck[a].b-P.deck[b].b).slice(0,10);
+  rv={q,i:0,phase:'front',r:{yes:0,unsure:0,no:0},done:false};
+  renderReview(); const t=$('#review-box h3'); if(t) t.focus();
+}
+function rate(level){
+  const id=rv.q[rv.i], d=P.deck[id], now=Date.now();
+  if(level==='no'){ d.b=1; d.due=now; }
+  else if(level==='unsure'){ d.due=now+(d.b>1?DAY:0); }
+  else { d.b=Math.min(5,d.b+1); d.due=now+INTERVAL[d.b]*DAY; }
+  rv.r[level]++; if(d.b===5 && level==='yes') toast('Mastered: '+DECKMAP[id].front+' ★');
+  save();
+}
+function nextCard(){ rv.i++; rv.phase='front'; if(rv.i>=rv.q.length) rv.done=true; renderReview(); const t=$('#review-box h3,#review-box .all-done'); if(t){ t.tabIndex=-1; t.focus(); } }
+function renderFlash(box){
+  const id=rv.q[rv.i], d=DECKMAP[id];
+  const head=h('h3',{tabindex:'-1'},d.front);
+  const back=()=>h('div',{class:'back'}, d.keys?h('p',{style:'margin:0 0 8px'},renderKeys(d.keys)):null, h('p',{style:'margin:0'},d.back), d.eg?h('p',{style:'margin:8px 0 0'},h('strong',{},'Example: '),d.eg):null);
+  const wrap=h('div',{class:'flash'},
+    h('p',{class:'eyebrow'},`Card ${rv.i+1} of ${rv.q.length} · ${CATMAP[d.cat].name} · ${BOXES[P.deck[id].b-1]}`),
+    h('p',{style:'color:var(--muted);margin:0'},d.ask), head, d.press?h('p',{},d.back):null);
+  if(rv.phase==='front'){
+    if(P.deckPress && d.press && pressable(d.keys)){
+      wrap.append(keyCapture(d.keys,{hint:'Think about the letter linked to the action, and whether Shift, Ctrl or Alt is involved.',onDone:ok=>{ rate(ok?'yes':'no'); rv.phase='auto'; rv.ok=ok; renderReview(); }}));
+    } else {
+      const b=h('button',{type:'button',class:'btn primary',onclick:()=>{ rv.phase='back'; renderReview(); $('#review-box .r-yes')?.focus(); }},'Show answer');
+      wrap.append(h('p',{style:'color:var(--muted);font-size:.9rem'},'Say or picture your answer first, then check.'),b);
+    }
+  } else if(rv.phase==='back'){
+    wrap.append(back(),h('p',{style:'margin-top:14px'},'How well did you know it?'),
+      h('div',{class:'rate'},
+        h('button',{type:'button',class:'r-no',onclick:()=>{ rate('no'); nextCard(); }},'✕ Didn’t know'),
+        h('button',{type:'button',class:'r-unsure',onclick:()=>{ rate('unsure'); nextCard(); }},'~ Unsure'),
+        h('button',{type:'button',class:'r-yes',onclick:()=>{ rate('yes'); nextCard(); }},'✓ Knew it')));
+  } else {
+    const fb=h('div',{class:'fb'}); feedback(fb,rv.ok?'ok':'bad',rv.ok?'Correct — card moves up a box.':'Not this time — the card goes back to the start.','');
+    const nb=h('button',{type:'button',class:'btn primary',style:'margin-top:12px',onclick:nextCard},rv.i===rv.q.length-1?'Finish':'Next card →');
+    wrap.append(fb,back(),nb); setTimeout(()=>nb.focus(),0);
+  }
+  box.append(wrap,h('div',{class:'pager'},h('button',{type:'button',class:'btn small',onclick:()=>{ rv=null; renderReview(); }},'End session'),h('span')));
+}
+
+/* =========================================================
+   FINAL CHALLENGE
+   ========================================================= */
+const FC_N=12;
+const fc={qs:[],i:0,score:0,missed:[],mode:'mixed',active:false};
+function fcIntro(){
+  fc.active=false;
+  const box=$('#final-box'); box.innerHTML='';
+  const modes=[['mixed','Mixed (recommended)'],['mc','Multiple choice and pictures only']];
+  const cur=P.fcMode||'mixed';
+  const radios=h('div',{class:'radio-row',role:'radiogroup','aria-label':'Question types'},modes.map(([v,l])=>{ const r=h('input',{type:'radio',name:'fc-mode',value:v}); r.checked=v===cur; return h('label',{},r,l); }));
+  add(box,
+    h('h3',{},'Ready to test yourself?'),
+    h('p',{},`${FC_N} questions from across the resource: weight painting knowledge, “press the shortcut” and “which tool?” pictures. Score 80% or more to show you have mastered Part 6.`),
+    h('ul',{class:'outcomes',style:'margin-bottom:12px'},h('li',{},'1 mark for a correct first answer with no hint.'),h('li',{},'½ mark if you used a hint or needed a second try.'),h('li',{},'Missed topics go into your review deck.')),
+    P.final.best!=null?h('p',{},h('strong',{},'Your best score: '),P.final.best+'%'):null,
+    h('p',{style:'margin:0;font-weight:650'},'Question types'),radios,
+    h('div',{class:'btn-row'},h('button',{type:'button',class:'btn primary',onclick:()=>{ const m=(radios.querySelector('input:checked')||{}).value||'mixed'; P.fcMode=m; save(); fcStart(m); }},'Start the challenge')));
+}
+function fcBuild(mode){
+  const mc=shuffle(FINAL_MC).map(q=>({type:'mc',q:q.q,opts:q.opts.slice(),a:0,hint:q.hint,explain:q.explain,card:q.card,kind:'text'}));
+  const pr=shuffle(FINAL_PRESS).map(q=>({type:pressable(q.keys)&&mode!=='mc'?'press':'mc',q:'Press the shortcut: '+q.q,mcq:'Which shortcut: '+q.q,keys:q.keys,opts:q.opts.slice(),a:0,hint:q.hint,explain:q.explain,card:q.card,kind:'keys'}));
+  const pc=shuffle(WHICH).map(w=>({type:'pic',q:'Which tool turned the left picture into the right one?',figs:[w.b(),w.a()],opts:[w.ans].concat(shuffle(WHICH_OPTS.filter(x=>x!==w.ans)).slice(0,3)),a:0,hint:w.hint,explain:w.explain,card:w.card,kind:'text'}));
+  const list=mc.slice(0,5).concat(pr.slice(0,4),pc.slice(0,3));
+  return shuffle(list).map(q=>{ if(q.type==='press') return q; if(q.mcq) q.q=q.mcq; const ord=shuffle(q.opts.map((_,i)=>i)); return {...q,opts:ord.map(i=>q.opts[i]),a:ord.indexOf(0)}; });
+}
+function fcStart(mode){ fc.qs=fcBuild(mode); fc.i=0; fc.score=0; fc.missed=[]; fc.mode=mode; fc.active=true; fcRender(); }
+const fmtScore=s=>(Math.round(s*2)/2).toString().replace('.5','½');
+function fcRender(){
+  const box=$('#final-box'); box.innerHTML='';
+  const Q=fc.qs[fc.i]; let usedHint=false, tries=0, locked=false;
+  const prompt=h('p',{class:'fc-q',tabindex:'-1'},Q.q);
+  const fb=h('div',{class:'fb','aria-live':'polite'});
+  const hintBox=h('div',{class:'hintbox',hidden:true},h('strong',{},'Hint: '),Q.hint);
+  const hintBtn=h('button',{type:'button',class:'btn small'},'💡 Hint (½ mark)');
+  hintBtn.addEventListener('click',()=>{ usedHint=true; hintBox.hidden=false; hintBtn.disabled=true; });
+  const nextBtn=h('button',{type:'button',class:'btn primary',hidden:true,onclick:()=>{ fc.i++; fc.i<fc.qs.length?fcRender():fcEnd(); }},fc.i===fc.qs.length-1?'See my score':'Next question →');
+  function finish(ok){
+    if(locked) return; locked=true; hintBtn.disabled=true;
+    const pts=ok?(usedHint||tries>0?.5:1):0; fc.score+=pts;
+    if(ok) feedback(fb,'ok',pts===1?'Correct! +1':'Correct! +½',Q.explain);
+    else { fc.missed.push(Q); addToDeck(cardId(Q.card));
+      const right=Q.type==='press'||Q.kind==='keys'?h('p',{},'The answer is ',renderKeys(Q.type==='press'?Q.keys:Q.opts[Q.a]),'. ',Q.explain):h('p',{},'The answer is ',h('strong',{},Q.opts[Q.a]),'. ',Q.explain);
+      feedback(fb,'bad','Not this time.',right); }
+    $('#fc-score').textContent='Score: '+fmtScore(fc.score);
+    nextBtn.hidden=false; nextBtn.focus();
+  }
+  let body;
+  if(Q.type==='press'){
+    body=keyCapture(Q.keys,{hint:Q.hint,onMiss:()=>{ usedHint=true; hintBox.hidden=false; hintBtn.disabled=true; },onDone:(ok,pressed,used)=>{ tries=used>0?1:0; finish(ok); },
+      onFallback:()=>{ Q.type='mc'; Q.q=Q.mcq; const ord=shuffle(Q.opts.map((_,i)=>i)); Q.opts=ord.map(i=>Q.opts[i]); Q.a=ord.indexOf(0); fcRender(); }});
+  } else {
+    body=h('div',{class:'opts'+(Q.type==='mc'&&Q.kind==='text'?' text-opts':'')});
+    Q.opts.forEach((o,i)=>{
+      const b=h('button',{type:'button',class:'opt'},h('span',{class:'lbl'},Q.kind==='keys'?renderKeys(o):o),h('span',{class:'mark','aria-hidden':'true'}));
+      b.addEventListener('click',()=>{
+        if(locked) return;
+        if(i===Q.a){ b.classList.add('correct'); $$('.opt',body).forEach(x=>x.disabled=true); finish(true); }
+        else {
+          b.classList.add('wrong'); b.disabled=true; tries++;
+          if(tries===1){ hintBox.hidden=false; hintBtn.disabled=true; feedback(fb,'hint','Not quite — read the hint and have one more try for ½ mark.',''); }
+          else { $$('.opt',body).forEach((x,j)=>{ x.disabled=true; if(j===Q.a) x.classList.add('correct'); }); finish(false); }
+        }
+      });
+      body.append(b);
+    });
+  }
+  const typeLbl={mc:'Multiple choice',press:'Press the shortcut',pic:'Which tool?'}[Q.type];
+  add(box,
+    h('div',{class:'fc-top'},h('span',{class:'eyebrow',style:'margin:0'},`Question ${fc.i+1} of ${fc.qs.length} · ${typeLbl}`),h('span',{class:'score-pill',id:'fc-score'},'Score: '+fmtScore(fc.score))),
+    prompt,
+    Q.type==='pic'?dgRow(dg(Q.figs[0],'Before'),dgArrow('?'),dg(Q.figs[1],'After')):null,
+    body, h('div',{class:'btn-row',style:'margin-top:12px'},hintBtn), hintBox, fb,
+    h('div',{class:'pager'},h('button',{type:'button',class:'btn small',onclick:()=>{ if(confirm('Stop this attempt? Your score will not be saved.')) fcIntro(); }},'Quit'),nextBtn));
+  if(Q.type==='press') setTimeout(()=>{ const c=$('.capture',box); if(c) c.focus(); },0);
+  else if(fc.i>0) prompt.focus();
+}
+function fcEnd(){
+  fc.active=false;
+  const pct=Math.round(fc.score/fc.qs.length*100);
+  P.final.done=true; P.final.best=Math.max(P.final.best||0,pct); save();
+  const box=$('#final-box'); box.innerHTML='';
+  const band=pct>=90?['Outstanding!','You really understand weight painting. Your rig is ready for animation.']
+            :pct>=80?['Part 6 mastered!','Great work. Review any you missed below — they are now in your review deck.']
+            :pct>=50?['Good progress','Use your review deck and the weight lab for the topics you missed, then try again.']
+            :['Keep practising','Go back through Learn and the activities, use your review deck, then try again — every attempt is different.'];
+  const h3=h('h3',{tabindex:'-1'},band[0]);
+  add(box,
+    h('p',{class:'big-score'},pct+'%'),
+    h('p',{},`You scored ${fmtScore(fc.score)} out of ${fc.qs.length}.`),
+    h3,h('p',{},band[1]),
+    fc.missed.length?h('div',{},h('h4',{},'Topics to review'),h('ul',{class:'review'},fc.missed.map(q=>h('li',{},h('span',{class:'type-tag'},{mc:'Question',press:'Shortcut',pic:'Picture'}[q.type]||'Question'),q.type==='press'||q.kind==='keys'?renderKeys(q.type==='press'?q.keys:q.opts[q.a]):h('strong',{},q.opts[q.a]),h('span',{},q.explain))))):h('p',{},'You got every question right. 🎉'),
+    h('div',{class:'btn-row',style:'margin-top:16px'},
+      h('button',{type:'button',class:'btn primary',onclick:()=>fcStart(fc.mode)},'Try again'),
+      h('button',{type:'button',class:'btn',onclick:fcIntro},'Change settings'),
+      fc.missed.length?h('a',{class:'btn',href:'#review'},'Go to review deck'):null,
+      h('a',{class:'btn',href:'#summary'},'See my summary')));
+  h3.focus(); toast('Final challenge: '+pct+'%');
+}
+
+/* =========================================================
+   SUMMARY
+   ========================================================= */
+const nameIn=$('#sum-name'); nameIn.value=P.name||'';
+let nameT; nameIn.addEventListener('input',()=>{ P.name=nameIn.value; clearTimeout(nameT); nameT=setTimeout(save,400); });
+function summaryRows(){
+  const c=counts(), pct=overallPct(c);
+  return [
+    ['Overall progress',pct+'%',pct>=100],
+    ['Warm-up (recap)',`${c.warm} / ${WARM.length} answered, ${c.warmFirst} correct first time`,c.warm>=WARM.length],
+    ['Categories explored',`${c.cats} / ${CATS.length}`,c.cats>=CATS.length],
+    ['Quick checks passed',`${c.checks} / ${CATS.length}`,c.checks>=CATS.length],
+    ['Weight lab',`${c.lab} / ${LAB_GOALS.length}`,c.lab>=LAB_GOALS.length],
+    ['Step order',`${c.order} / ${ORDER.length}`,c.order>=ORDER.length],
+    ['Weight problems',`${c.topo} / ${TOPO.length}`,c.topo>=TOPO.length],
+    ['Which tool?',`${c.which} / ${WHICH.length}`,c.which>=WHICH.length],
+    ['Scenario quiz',`${c.quiz} / ${QUIZ.length} answered, ${c.quizFirst} correct first time`,c.quiz>=QUIZ.length],
+    ['Common mistakes questions',`${c.mist} / ${MQ.length}`,c.mist>=MQ.length],
+    ['Mini project steps',`${c.proj} / ${PROJECT.length}`,c.proj>=PROJECT.length],
+    ['Review deck',`${c.mastered} mastered, ${c.deck-c.mastered} in progress`,c.deck>0&&c.mastered===c.deck],
+    ['Final challenge best score',P.final.best!=null?P.final.best+'%':'Not attempted',P.final.best!=null&&P.final.best>=80]
+  ];
+}
+function renderSummary(){
+  const t=$('#sum-table'); if(!t) return;
+  t.innerHTML='';
+  summaryRows().forEach(([l,v,d])=>t.append(h('tr',{class:d?'done':''},h('td',{},l),h('td',{},v))));
+  $('#sum-reflect').textContent=P.reflect?P.reflect:'No reflection written yet.';
+}
+const today=()=>new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+const TITLE='Blender Weight Painting (Part 6)';
+$('#sum-print').addEventListener('click',()=>{
+  printNode(h('div',{},
+    h('h1',{},TITLE+' — Learning summary'),
+    h('p',{},h('strong',{},'Name: '),P.name||'____________________','   ',h('strong',{},'Date: '),today()),
+    h('h2',{},'Results'),
+    h('table',{class:'pa-table'},summaryRows().map(([l,v])=>h('tr',{},h('td',{},l),h('td',{},v)))),
+    h('h2',{},'Learning outcomes'),
+    h('ul',{},$$('#outcomes li').map(li=>h('li',{},li.textContent))),
+    h('h2',{},'Reflection'),
+    h('div',{class:'pa-box'},P.reflect||'(No reflection written.)'),
+    h('p',{style:'margin-top:10pt;font-size:8pt'},'Results are self-reported and stored on the student’s own device. Part 6 is the last part so far in the series.')));
+});
+$('#sum-copy').addEventListener('click',async()=>{
+  const text=[TITLE+' — Learning summary','Name: '+(P.name||'-'),'Date: '+today(),'',
+    ...summaryRows().map(([l,v])=>`${l}: ${v}`),'','Reflection:',P.reflect||'(none)'].join('\n');
+  try{ await navigator.clipboard.writeText(text); toast('Summary copied'); }
+  catch(e){ const ta=h('textarea',{style:'position:fixed;left:-9999px'}); ta.value=text; document.body.append(ta); ta.select();
+    try{ document.execCommand('copy'); toast('Summary copied'); }catch(e2){ toast('Copy failed — please select and copy manually'); } ta.remove(); }
+});
+
+/* =========================================================
+   NAV
+   ========================================================= */
+if('IntersectionObserver' in window){
+  const links=$$('.nav a');
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>{ const on=a.dataset.sec===e.target.id; a.classList.toggle('current',on); if(on){ a.setAttribute('aria-current','true'); const nv=a.closest('.nav'); const l=a.offsetLeft-nv.offsetLeft; if(l<nv.scrollLeft||l+a.offsetWidth>nv.scrollLeft+nv.clientWidth) nv.scrollLeft=l-16; } else a.removeAttribute('aria-current'); }); } });
+  },{rootMargin:'-40% 0px -55% 0px'});
+  $$('section.block').forEach(s=>io.observe(s));
+}
+document.addEventListener('click',e=>{ const p=$('#prog'); if(p.open && !p.contains(e.target)) p.open=false; });
+
+/* =========================================================
+   INIT
+   ========================================================= */
+syncMacButtons();
+renderRecap();
+renderWarm();
+renderPanel();
+refFilter();
+renderLab();
+renderOrder();
+renderTopo();
+renderWhich();
+renderQuiz();
+renderMistakes();
+renderProject();
+renderReview();
+fcIntro();
+updateProgress();
+})();
+</script>
+</body>
+</html>
